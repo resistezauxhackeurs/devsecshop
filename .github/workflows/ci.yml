@@ -1,0 +1,37 @@
+# devsecshop/.github/workflows/ci.yml
+# Pipeline d'intégration continue — ÉTAT INITIAL (TP1).
+# À ce stade : build + lint + test uniquement. AUCUN contrôle de sécurité.
+# Les TP suivants ajouteront les jobs de sécurité (secrets, SCA, SAST, DAST, gate).
+
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+jobs:
+  build-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npm test
+
+      - name: Build (vérification de démarrage)
+        run: node -e "require('./src/app.js'); console.log('App chargée sans erreur.')"

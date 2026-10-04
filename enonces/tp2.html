@@ -1,0 +1,101 @@
+<!-- tp2-secrets/enonce-etudiant.html -->
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TP2 — Secrets exposés | Formation CI/CD DevSecOps</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🔑%3C/text%3E%3C/svg%3E">
+<style>
+:root{--bg:#f6f7f9;--ink:#1a1a2e;--accent:#0f3460;--accent2:#16213e;--red:#e94560;--code-bg:#1b1f2a;--ok:#1b7f4b;}
+*{box-sizing:border-box}body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;line-height:1.6;color:var(--ink);background:var(--bg);margin:0}
+.wrap{max-width:860px;margin:0 auto;padding:32px 20px 80px}
+header.doc{background:linear-gradient(135deg,#16213e,#0f3460);color:#fff;padding:36px 20px;border-radius:0 0 16px 16px}
+header.doc h1{margin:0 0 6px;font-size:25px}header.doc .meta{opacity:.85;font-size:14px}
+.badge{display:inline-block;background:var(--red);color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px}
+h2{color:var(--accent2);margin-top:34px;border-bottom:2px solid #e3e6ea;padding-bottom:6px}h3{color:var(--accent);margin-top:22px}
+code{background:#eef0f3;padding:1px 6px;border-radius:4px;font-size:90%}
+pre{background:var(--code-bg);color:#e6e6e6;padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.5}
+pre code{background:none;padding:0;color:inherit}
+.card{background:#fff;border:1px solid #e3e6ea;border-radius:10px;padding:16px 20px;margin:16px 0}
+.obj{border-left:4px solid var(--ok);background:#eaf6ef;padding:12px 16px;border-radius:6px;margin:16px 0}
+.note{border-left:4px solid var(--accent);background:#eef3fb;padding:12px 16px;border-radius:6px;margin:16px 0}
+.warn{border-left:4px solid var(--red);background:#fdecef;padding:12px 16px;border-radius:6px;margin:16px 0}
+.partA{border-top:3px solid var(--red)}.partB{border-top:3px solid var(--ok)}
+.livrable{background:#fff7e6;border:1px solid #ffe2a8;border-radius:8px;padding:14px 18px;margin-top:12px}
+table{border-collapse:collapse;width:100%;margin:12px 0}th,td{border:1px solid #e3e6ea;padding:8px 10px;text-align:left;font-size:14px}th{background:#f0f2f5}
+ul.clean{padding-left:20px}footer.doc{text-align:center;color:#8a8f98;font-size:13px;margin-top:50px}
+.tag{font-size:12px;font-weight:700;padding:2px 8px;border-radius:5px;color:#fff}
+</style></head>
+<body>
+<header class="doc"><div class="wrap" style="padding:0">
+<span class="badge">TP 2 / 8 — NIVEAU 1</span>
+<h1>🔑 Secrets exposés dans le code et l'historique git</h1>
+<div class="meta">Jour 1 · Capacité CI ajoutée : <strong>secret scanning</strong> (gitleaks) · Durée : 1 h</div>
+</div></header>
+<div class="wrap">
+
+<div class="obj"><strong>Objectifs</strong>
+<ul class="clean">
+<li>Trouver les secrets planqués dans le dépôt et <strong>s'en servir</strong> (forger un jeton admin).</li>
+<li>Ajouter un job CI <strong>gitleaks</strong> qui fait échouer le build dès qu'un secret apparaît.</li>
+<li>Poser un <strong>hook pre-commit</strong> qui bloque le secret <em>avant</em> le push.</li>
+<li>Corriger : sortir les secrets du code, et comprendre la révocation + purge d'historique.</li>
+</ul></div>
+
+<div class="note" data-flux="git"><strong>⚙️ Flux de ce lab (git)</strong>
+<ul class="clean">
+<li><strong>Récupérer :</strong> <code>git clone &lt;URL-GitHub&gt; &amp;&amp; cd app_devsecshop</code></li>
+<li><strong>Lancer :</strong> <code>docker compose up --build -d</code> &rarr; http://localhost:3000</li>
+<li><strong>Tester :</strong> <code>./scripts/test.sh</code> (Linux / Git Bash) ou <code>scripts	est.bat</code> (Windows) &mdash; les tests tournent dans Docker.</li>
+<li><strong>Corriger puis comparer :</strong> écris ton correctif, relance les tests, puis compare au corrigé de référence : <code>git diff main origin/solution/tp2</code> ou <code>git checkout solution/tp2</code>.</li>
+</ul>
+Dans cet énoncé, « versions fournies » et <code>npm test</code> renvoient à ce flux (le correctif de référence est la branche <code>solution/tp2</code>).</div>
+
+<h2 class="partA">Partie A — Comprendre &amp; exploiter</h2>
+
+<h3>A.1 — Repérer les secrets</h3>
+<p>Un secret, c'est tout ce qui donne un accès : clé d'API, mot de passe, secret de signature. Cherchez-les dans le dépôt, code <em>et</em> fichiers de config :</p>
+<pre><code># motifs classiques dans tout le dépôt
+grep -rniE "api[_-]?key|secret|password|token|sk_lab_" --include='*.js' --include='*.env' .
+cat .env</code></pre>
+<p>Vous devez trouver au moins : une clé type Stripe en dur dans <code>src/lib/config.js</code>, et le fichier <code>.env</code> <strong>commité</strong> (secret JWT, mot de passe de base).</p>
+<div class="livrable"><strong>Question 1.</strong> Listez les secrets trouvés, leur emplacement, et pour chacun : que permet-il concrètement ?</div>
+
+<h3>A.2 — Exploiter : forger un jeton d'administrateur</h3>
+<p>Le cookie <code>session</code> est un JWT signé en HS256 avec le secret <code>JWT_SECRET</code>… que vous venez de lire. Qui connaît le secret peut fabriquer n'importe quel jeton, donc se faire passer pour l'admin sans mot de passe.</p>
+<p>Récupérez d'abord votre cookie de session actuel (connectez-vous en client), puis décodez-le dans Burp (<em>Decoder</em>) ou sur un décodeur JWT. Forgez ensuite un token admin :</p>
+<pre><code># avec la CLI node (depuis le dossier devsecshop, jsonwebtoken est déjà installé)
+node -e "console.log(require('jsonwebtoken').sign({uid:1,username:'admin',is_admin:true},'devsecshop-super-secret-2023'))"</code></pre>
+<p>Dans Burp, remplacez la valeur du cookie <code>session</code> par ce jeton et rejouez une requête vers <code>/admin</code>. Vous êtes administrateur.</p>
+<div class="livrable"><strong>Question 2.</strong> Preuve d'accès au back-office avec le jeton forgé (capture). Pourquoi un secret <em>fort</em> mais présent dans le code ne protège-t-il pas davantage ?</div>
+
+<h2 class="partB">Partie B — Détecter &amp; corriger en CI/CD</h2>
+
+<h3>B.1 — Scanner les secrets dans la pipeline</h3>
+<p>Ajoutez le workflow fourni <code>.github/workflows/02-secrets.yml</code> (gitleaks) et le fichier de config <code>.gitleaks.toml</code> à la racine. Poussez. Le job doit <strong>échouer</strong> : il trouve les secrets, y compris dans l'historique (<code>fetch-depth: 0</code>).</p>
+<div class="note">gitleaks scanne aussi les <strong>commits passés</strong> : supprimer un secret dans un nouveau commit ne suffit pas, il reste dans l'historique. D'où l'étape de purge plus bas.</div>
+
+<h3>B.2 — Bloquer avant le push (pre-commit)</h3>
+<pre><code>pip install pre-commit
+pre-commit install            # installe le hook défini dans .pre-commit-config.yaml
+# test : tentez de committer un faux secret
+echo 'const k="sk_lab_0123456789abcdefghijklmnop";' > test_secret.js
+git add test_secret.js && git commit -m "test"   # doit être BLOQUÉ par gitleaks
+rm test_secret.js</code></pre>
+
+<h3>B.3 — Corriger le code</h3>
+<p>Remplacez <code>src/lib/config.js</code> par la version fournie (plus aucun secret en dur, lecture depuis l'environnement). Mettez à jour <code>.gitignore</code> (fourni : il ignore désormais <code>.env</code>) et ajoutez <code>.env.example</code> comme modèle.</p>
+<div class="warn"><strong>Supprimer ≠ révoquer.</strong> Un secret exposé est compromis <em>pour toujours</em>. Il faut : (1) le <strong>révoquer/roter</strong> côté fournisseur, (2) le purger de l'historique git.</div>
+<pre><code># retirer .env du suivi (il reste en local) et committer
+git rm --cached .env
+git add .gitignore .env.example src/lib/config.js
+git commit -m "Secrets hors du code + .env ignoré"
+
+# purge de l'historique (⚠️ réécrit l'historique)
+pip install git-filter-repo
+git filter-repo --path .env --invert-paths --force
+# puis forcer le push et prévenir l'équipe (historique réécrit)</code></pre>
+
+<h3>B.4 — Vérifier</h3>
+<p>Relancez la pipeline après purge et correction : le job gitleaks doit repasser au <strong>vert</strong>. Le jeton forgé avec l'ancien secret ne doit plus fonctionner une fois <code>JWT_SECRET</code> roté.</p>
+<div class="livrable"><strong>Livrables :</strong> réponses Q1–Q2 ; capture du job gitleaks rouge (avant) puis vert (après) ; capture du pre-commit qui bloque un secret.</div>
+
+<footer class="doc">Formation CI/CD &amp; DevSecOps · Résistez aux hackeurs · TP2 — énoncé étudiant</footer>
+</div></body></html>

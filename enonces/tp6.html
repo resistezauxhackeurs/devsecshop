@@ -1,0 +1,49 @@
+<!-- tp6-yaml-deserialization/enonce-etudiant.html -->
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TP6 — Désérialisation YAML (js-yaml)</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E📄%3C/text%3E%3C/svg%3E">
+<style>:root{--bg:#f6f7f9;--ink:#1a1a2e;--accent:#0f3460;--accent2:#16213e;--red:#e94560;--code-bg:#1b1f2a;--ok:#1b7f4b;}*{box-sizing:border-box}body{font-family:system-ui,sans-serif;line-height:1.6;color:var(--ink);background:var(--bg);margin:0}.wrap{max-width:860px;margin:0 auto;padding:32px 20px 80px}h2{color:var(--accent2);margin-top:34px;border-bottom:2px solid #e3e6ea;padding-bottom:6px}h3{color:var(--accent);margin-top:22px}code{background:#eef0f3;padding:1px 6px;border-radius:4px;font-size:90%}pre{background:var(--code-bg);color:#e6e6e6;padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.5}pre code{background:none;padding:0;color:inherit}.obj{border-left:4px solid var(--ok);background:#eaf6ef;padding:12px 16px;border-radius:6px;margin:16px 0}.note{border-left:4px solid var(--accent);background:#eef3fb;padding:12px 16px;border-radius:6px;margin:16px 0}.warn{border-left:4px solid var(--red);background:#fdecef;padding:12px 16px;border-radius:6px;margin:16px 0}.partA{border-top:3px solid var(--red)}.partB{border-top:3px solid var(--ok)}.livrable{background:#fff7e6;border:1px solid #ffe2a8;border-radius:8px;padding:14px 18px;margin-top:12px}.ans{border-left:4px solid var(--ok);background:#eaf6ef;padding:12px 16px;border-radius:6px;margin:14px 0}.tip{border-left:4px solid var(--accent);background:#eef3fb;padding:12px 16px;border-radius:6px;margin:14px 0}table{border-collapse:collapse;width:100%;margin:12px 0}th,td{border:1px solid #e3e6ea;padding:8px 10px;text-align:left;font-size:14px}th{background:#f0f2f5}ul.clean{padding-left:20px}.badge{display:inline-block;background:var(--red);color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px}header.doc{background:linear-gradient(135deg,#2a1a3e,#0f3460);color:#fff;padding:34px 20px;border-radius:0 0 16px 16px}header.doc h1{margin:6px 0 0;font-size:24px}header.doc .meta{opacity:.85;font-size:14px;margin-top:6px}footer.doc{text-align:center;color:#8a8f98;font-size:13px;margin-top:50px}</style></head><body>
+<header class="doc"><div class="wrap" style="padding:0"><span class="badge">TP 6 / 8 — NIVEAU 2</span>
+<h1>📄 RCE via désérialisation YAML (js-yaml)</h1>
+<div class="meta">Jour 2 · Invisible au DAST · Détection : <strong>SCA</strong> (version) + SAST (API) · Durée : 1 h</div></div></header>
+<div class="wrap">
+<div class="obj"><strong>Objectifs</strong><ul class="clean">
+<li>Obtenir une RCE via un YAML <code>!!js/function</code>.</li>
+<li>Comprendre le <strong>piège de version</strong> de js-yaml (v3 vs v4).</li>
+<li>Mettre une <strong>gate SCA</strong> (version minimale) et une règle SAST (API obsolète).</li>
+<li>Corriger par mise à jour en v4.</li></ul></div>
+
+<div class="note" data-flux="git"><strong>⚙️ Flux de ce lab (git)</strong>
+<ul class="clean">
+<li><strong>Récupérer :</strong> <code>git clone &lt;URL-GitHub&gt; &amp;&amp; cd app_devsecshop</code></li>
+<li><strong>Lancer :</strong> <code>docker compose up --build -d</code> &rarr; http://localhost:3000</li>
+<li><strong>Tester :</strong> <code>./scripts/test.sh</code> (Linux / Git Bash) ou <code>scripts	est.bat</code> (Windows) &mdash; les tests tournent dans Docker.</li>
+<li><strong>Corriger puis comparer :</strong> écris ton correctif, relance les tests, puis compare au corrigé de référence : <code>git diff main origin/solution/tp6</code> ou <code>git checkout solution/tp6</code>.</li>
+</ul>
+Dans cet énoncé, « versions fournies » et <code>npm test</code> renvoient à ce flux (le correctif de référence est la branche <code>solution/tp6</code>).</div>
+
+<h2 class="partA">Partie A — Comprendre &amp; exploiter</h2>
+<h3>A.1 — Le point d'entrée</h3>
+<p>Le back-office importe des réglages au format YAML (<code>POST /admin/import-settings</code>). L'appli utilise <strong>js-yaml 3.13.1</strong> avec <code>load()</code>, qui accepte le type <code>!!js/function</code> : il construit une vraie fonction JavaScript à partir du YAML.</p>
+<h3>A.2 — RCE via <code>!!js/function</code></h3>
+<p>Construire la fonction ne suffit pas : il faut qu'elle soit <em>appelée</em>. On piège la clé <code>toString</code>, appelée dès que l'objet est concaténé à une chaîne (ce que fait le code en journalisant les réglages). Dans une fonction créée ainsi, <code>require</code> n'existe pas directement : on passe par <code>process.mainModule.require</code>.</p>
+<pre><code>POST /admin/import-settings   (champ yaml)
+
+"toString": !&lt;tag:yaml.org,2002:js/function&gt; "function(){process.mainModule.require('child_process').execSync('id &gt; /tmp/yaml_pwn.txt')}"</code></pre>
+<div class="warn">RCE complète via un simple champ YAML. Aucun scanner dynamique ne la trouve sans connaître le type maison <code>!!js/function</code>.</div>
+<div class="livrable"><strong>Question 1.</strong> Preuve d'exécution. Pourquoi faut-il passer par <code>toString</code> et <code>process.mainModule.require</code> ?</div>
+
+<h2 class="partB">Partie B — Détecter &amp; corriger en CI/CD</h2>
+<h3>B.1 — Le piège de version (à retenir absolument)</h3>
+<div class="note">En <strong>js-yaml v3</strong>, <code>load()</code> est dangereux et il fallait penser à <code>safeLoad()</code>. En <strong>v4</strong> (2021), ils ont <em>inversé</em> : <code>safeLoad</code> a été supprimé et <code>load()</code> est sûr par défaut (les types <code>!!js/function</code> ne sont plus dans le schéma par défaut). Un dev qui suit un vieux tuto ou reste en v3 se fait avoir ; un autre migre v3→v4 et son <code>safeLoad</code> casse.</div>
+<h3>B.2 — Détection</h3>
+<p>Conséquence : cette faille se détecte surtout par <strong>SCA</strong> (version de la dépendance), pas par un motif de code — car le <em>même</em> <code>load()</code> est dangereux en v3 et sûr en v4. Ajoutez <code>.github/workflows/06-sast-yaml.yml</code> : le job <em>sca-yaml</em> échoue si <code>js-yaml &lt; 4</code> ; le job <em>semgrep-yaml</em> signale l'API v3 obsolète (<code>safeLoad</code>).</p>
+<h3>B.3 — Corriger</h3>
+<pre><code>npm install js-yaml@^4.1.0      # (déjà dans le package.json fourni)</code></pre>
+<p>Remplacez <code>src/routes/admin.js</code> par la version fournie : <code>yaml.load()</code> sur js-yaml v4, sûr par défaut. Les types <code>!!js/function</code> sont refusés.</p>
+<h3>B.4 — Vérifier</h3>
+<pre><code>npm test    # tests/yaml.test.js</code></pre>
+<p>Le payload <code>!!js/function</code> est inerte, un YAML légitime fonctionne, la gate SCA passe (js-yaml ≥ 4).</p>
+<div class="livrable"><strong>Livrables :</strong> Q1 + preuve RCE (avant) ; job SCA rouge (v3) puis vert (v4) ; <code>npm test</code> vert.</div>
+<footer class="doc">Formation CI/CD &amp; DevSecOps · Résistez aux hackeurs · TP6 — énoncé étudiant</footer>
+</div></body></html>

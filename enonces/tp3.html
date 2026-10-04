@@ -1,0 +1,101 @@
+<!-- tp3-sqli-bruteforce/enonce-etudiant.html -->
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TP3 — Injection SQL & brute force</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E💉%3C/text%3E%3C/svg%3E">
+<style>
+:root{--bg:#f6f7f9;--ink:#1a1a2e;--accent:#0f3460;--accent2:#16213e;--red:#e94560;--code-bg:#1b1f2a;--ok:#1b7f4b;}
+*{box-sizing:border-box}body{font-family:system-ui,sans-serif;line-height:1.6;color:var(--ink);background:var(--bg);margin:0}
+.wrap{max-width:860px;margin:0 auto;padding:32px 20px 80px}
+header.doc{background:linear-gradient(135deg,#16213e,#0f3460);color:#fff;padding:36px 20px;border-radius:0 0 16px 16px}
+header.doc h1{margin:0 0 6px;font-size:25px}header.doc .meta{opacity:.85;font-size:14px}
+.badge{display:inline-block;background:var(--red);color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px}
+h2{color:var(--accent2);margin-top:34px;border-bottom:2px solid #e3e6ea;padding-bottom:6px}h3{color:var(--accent);margin-top:22px}
+code{background:#eef0f3;padding:1px 6px;border-radius:4px;font-size:90%}
+pre{background:var(--code-bg);color:#e6e6e6;padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.5}
+pre code{background:none;padding:0;color:inherit}
+.obj{border-left:4px solid var(--ok);background:#eaf6ef;padding:12px 16px;border-radius:6px;margin:16px 0}
+.note{border-left:4px solid var(--accent);background:#eef3fb;padding:12px 16px;border-radius:6px;margin:16px 0}
+.warn{border-left:4px solid var(--red);background:#fdecef;padding:12px 16px;border-radius:6px;margin:16px 0}
+.partA{border-top:3px solid var(--red)}.partB{border-top:3px solid var(--ok)}
+.livrable{background:#fff7e6;border:1px solid #ffe2a8;border-radius:8px;padding:14px 18px;margin-top:12px}
+ul.clean{padding-left:20px}footer.doc{text-align:center;color:#8a8f98;font-size:13px;margin-top:50px}
+</style></head>
+<body>
+<header class="doc"><div class="wrap" style="padding:0">
+<span class="badge">TP 3 / 8 — NIVEAU 1</span>
+<h1>💉 Injection SQL &amp; brute force du login</h1>
+<div class="meta">Jour 1 · Capacité CI ajoutée : <strong>SAST</strong> (Semgrep) · Durée : 1 h 30</div>
+</div></header>
+<div class="wrap">
+
+<div class="obj"><strong>Objectifs</strong>
+<ul class="clean">
+<li>Exploiter une <strong>injection SQL</strong> : contourner l'authentification puis exfiltrer les hash.</li>
+<li><strong>Brute-forcer</strong> le login avec Burp Intruder (aucune limite de tentatives).</li>
+<li>Ajouter un job <strong>Semgrep (SAST)</strong> qui repère la construction de requêtes par concaténation.</li>
+<li>Corriger : requêtes paramétrées + limiteur de tentatives.</li>
+</ul></div>
+
+<div class="note" data-flux="git"><strong>⚙️ Flux de ce lab (git)</strong>
+<ul class="clean">
+<li><strong>Récupérer :</strong> <code>git clone &lt;URL-GitHub&gt; &amp;&amp; cd app_devsecshop</code></li>
+<li><strong>Lancer :</strong> <code>docker compose up --build -d</code> &rarr; http://localhost:3000</li>
+<li><strong>Tester :</strong> <code>./scripts/test.sh</code> (Linux / Git Bash) ou <code>scripts	est.bat</code> (Windows) &mdash; les tests tournent dans Docker.</li>
+<li><strong>Corriger puis comparer :</strong> écris ton correctif, relance les tests, puis compare au corrigé de référence : <code>git diff main origin/solution/tp3</code> ou <code>git checkout solution/tp3</code>.</li>
+</ul>
+Dans cet énoncé, « versions fournies » et <code>npm test</code> renvoient à ce flux (le correctif de référence est la branche <code>solution/tp3</code>).</div>
+
+<h2 class="partA">Partie A — Comprendre &amp; exploiter</h2>
+
+<h3>A.1 — Bypass d'authentification</h3>
+<p>Le login construit sa requête en collant vos entrées dans la chaîne SQL. En commentant la fin de la requête, on se connecte sans mot de passe. Interceptez <code>POST /login</code> dans Burp et envoyez :</p>
+<pre><code>username = admin'-- -
+password = (n'importe quoi)</code></pre>
+<p>Le <code>--</code> commente le reste (la vérification du mot de passe). Vous êtes connecté en <code>admin</code>, accès <code>/admin</code> ouvert.</p>
+<div class="livrable"><strong>Question 1.</strong> Expliquez, requête SQL à l'appui, pourquoi <code>admin'-- -</code> fonctionne.</div>
+
+<h3>A.2 — Exfiltration par UNION</h3>
+<p>La recherche produit est aussi injectable. On utilise un <code>UNION SELECT</code> pour faire renvoyer les colonnes de <code>users</code> à la place des produits. Le catalogue a 6 colonnes, on aligne le nombre :</p>
+<pre><code>GET /products/search?q=zzz' UNION SELECT id, username||':'||password, email, 0, '', 0 FROM users-- -</code></pre>
+<p>Les « produits » affichés sont en fait <code>utilisateur:hash_md5</code>. Les hash sont en MD5 (faible) : passez-les à un cracker (<code>hashcat -m 0</code>, ou une base de rainbow tables en ligne).</p>
+<div class="livrable"><strong>Question 2.</strong> Donnez les identifiants récupérés. Pourquoi le MD5 non salé est-il un problème en plus de la SQLi ?</div>
+
+<h3>A.3 — Brute force du login</h3>
+<p>Aucune limite de tentatives : le login est brute-forçable. Dans Burp, envoyez un <code>POST /login</code> vers <strong>Intruder</strong>, placez le marqueur sur <code>password</code>, chargez une liste (ex. <em>rockyou</em> réduite). Le compte <code>alice</code> a un mot de passe du top-100.</p>
+<pre><code># équivalent en ligne de commande (ffuf) :
+ffuf -X POST -u http://localhost:3000/login \
+  -d "username=alice&password=FUZZ" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -w rockyou-top1000.txt -mc 302 -fc 401</code></pre>
+<div class="livrable"><strong>Question 3.</strong> Combien de tentatives avant de trouver le mot de passe d'<code>alice</code> ? Qu'est-ce qui rend l'attaque possible côté serveur ?</div>
+
+<h2 class="partB">Partie B — Détecter &amp; corriger en CI/CD</h2>
+
+<h3>B.1 — SAST : repérer la faille dans le code</h3>
+<p>La SQLi ne vient pas d'une dépendance mais de <em>votre</em> code. L'analyse statique la voit. Ajoutez la règle <code>semgrep-rules/sql-injection.yml</code> et le workflow <code>.github/workflows/03-sast.yml</code>. Testez en local :</p>
+<pre><code># en local (si semgrep installé) :
+semgrep scan --config ./semgrep-rules --config p/javascript src/</code></pre>
+<p>La règle maison repère <code>db.prepare("..." + ...)</code> et les template strings. Au push, le job Semgrep échoue et remonte les findings dans l'onglet <strong>Security</strong> (format SARIF).</p>
+<div class="note">Point clé : le DAST (Burp/ZAP) trouve la SQLi en <em>attaquant</em> l'appli ; le SAST la trouve en <em>lisant</em> le code, bien plus tôt dans le cycle. Les deux sont complémentaires.</div>
+
+<h3>B.2 — Corriger</h3>
+<p>Remplacez <code>src/routes/auth.js</code> et <code>src/routes/products.js</code> par les versions fournies :</p>
+<ul class="clean">
+<li><strong>Requêtes paramétrées</strong> : <code>db.prepare('... WHERE username = ? AND password = ?').get(user, hash)</code>. Les entrées ne peuvent plus modifier la structure de la requête.</li>
+<li><strong>Limiteur</strong> : <code>express-rate-limit</code> sur <code>/login</code> (5 essais / 15 min, puis 429).</li>
+</ul>
+<pre><code>npm install express-rate-limit   # nouvelle dépendance (déjà dans le package.json fourni)</code></pre>
+
+<h3>B.3 — Vérifier</h3>
+<p>Les tests d'abus fournis (<code>tests/sqli.test.js</code>, <code>tests/bruteforce.test.js</code>) doivent passer :</p>
+<pre><code>npm test</code></pre>
+<ul class="clean">
+<li><code>admin'-- -</code> renvoie désormais 401.</li>
+<li>La recherche par UNION ne fuit plus aucun hash (mais la recherche normale marche toujours).</li>
+<li>Après 5 tentatives, le login renvoie 429.</li>
+<li>Semgrep repasse au vert sur le code corrigé.</li>
+</ul>
+<div class="livrable"><strong>Livrables :</strong> réponses Q1–Q3 ; captures Burp (bypass + UNION + Intruder) ; capture du job Semgrep rouge puis vert ; <code>npm test</code> au vert.</div>
+
+<footer class="doc">Formation CI/CD &amp; DevSecOps · Résistez aux hackeurs · TP3 — énoncé étudiant</footer>
+</div></body></html>

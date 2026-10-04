@@ -1,0 +1,41 @@
+<!-- devsecshop/src/views/partials/header.ejs -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DevSecShop</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f6f7f9; color: #1a1a2e; }
+    header { background: #16213e; color: #fff; padding: 12px 20px; display: flex; gap: 18px; align-items: center; }
+    header a { color: #e0e0e0; text-decoration: none; font-size: 14px; }
+    header a:hover { color: #fff; }
+    header .brand { font-weight: 700; font-size: 18px; color: #fff; margin-right: auto; }
+    main { max-width: 900px; margin: 24px auto; padding: 0 16px; }
+    .card { background: #fff; border: 1px solid #e3e6ea; border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+    input, select, textarea { padding: 8px; border: 1px solid #ccc; border-radius: 6px; font: inherit; width: 100%; box-sizing: border-box; }
+    button { background: #0f3460; color: #fff; border: 0; padding: 9px 16px; border-radius: 6px; cursor: pointer; font: inherit; }
+    .err { color: #b00020; font-size: 14px; }
+    label { display: block; font-size: 13px; margin: 8px 0 4px; }
+    .price { font-weight: 700; color: #0f3460; }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="brand" href="/">🛒 DevSecShop</a>
+    <a href="/">Catalogue</a>
+    <a href="/products/search?q=clavier">Recherche</a>
+    <a href="/cart">Panier</a>
+    <% if (user) { %>
+      <a href="/account/orders">Mes commandes</a>
+      <a href="/account/profile">Profil</a>
+      <% if (user.is_admin) { %><a href="/admin">Admin</a><% } %>
+      <a href="/logout">Déconnexion (<%= user.username %>)</a>
+    <% } else { %>
+      <a href="/login">Connexion</a>
+      <a href="/register">Inscription</a>
+    <% } %>
+  </header>
+  <main>

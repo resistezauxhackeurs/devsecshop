@@ -1,0 +1,32 @@
+<%- include('partials/header') %>
+<!-- devsecshop/src/views/admin.ejs -->
+<h1>Back-office</h1>
+<div class="card">
+  <h3>Importer une image produit (par URL)</h3>
+  <form method="get" action="/admin/import-image">
+    <input name="url" placeholder="https://exemple/img.png">
+    <p><button type="submit">Importer</button></p>
+  </form>
+</div>
+<div class="card">
+  <h3>Importer un catalogue (XML)</h3>
+  <form method="post" action="/admin/import-catalog" enctype="text/plain">
+    <textarea name="xml" rows="5">&lt;catalog&gt;&lt;product&gt;&lt;name&gt;Test&lt;/name&gt;&lt;/product&gt;&lt;/catalog&gt;</textarea>
+    <p><button type="submit">Importer</button></p>
+  </form>
+</div>
+<div class="card">
+  <h3>Importer des réglages (YAML)</h3>
+  <form method="post" action="/admin/import-settings">
+    <textarea name="yaml" rows="4">currency: EUR</textarea>
+    <p><button type="submit">Appliquer</button></p>
+  </form>
+</div>
+<div class="card">
+  <h3>Exporter le catalogue</h3>
+  <form method="post" action="/admin/export">
+    <label>Format</label><input name="format" value="csv">
+    <p><button type="submit">Exporter</button></p>
+  </form>
+</div>
+<%- include('partials/footer') %>

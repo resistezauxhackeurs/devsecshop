@@ -1,0 +1,244 @@
+<!-- enonces/index.html (page TP etudiant - genere par make-student-repo.sh) -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>DevSecShop - Page TP (récupérer, lancer, exploiter, corriger)</title>
+<meta name="description" content="Page TP du lab DevSecShop : recuperer le depot GitHub, lancer en Docker, et pour chaque TP exploiter la faille, corriger, et retester.">
+
+<meta property="og:type" content="article">
+<meta property="og:title" content="DevSecShop - Page TP">
+<meta property="og:description" content="Recuperer, lancer, exploiter puis corriger : les 8 TP CI/CD DevSecOps du lab DevSecShop.">
+<meta property="og:site_name" content="Résistez aux hackeurs">
+<meta property="og:locale" content="fr_FR">
+<meta name="twitter:card" content="summary">
+
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23232c35'/><path d='M16 6l8 3v6c0 5-3.3 8.6-8 10-4.7-1.4-8-5-8-10V9z' fill='%23a85f2e'/><path d='M12.5 16.5l2.4 2.4 4.6-4.9' fill='none' stroke='%23f0ede9' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+
+<style>
+  :root{
+    --cuivre:#a85f2e;--cuivre-clair:#c47c46;--ardoise:#232c35;--ardoise-fonce:#1a2129;
+    --clair:#f0ede9;--texte:#2b2b2b;
+    --font-titre:"Space Grotesk","Segoe UI",system-ui,sans-serif;
+    --font-texte:"IBM Plex Sans",-apple-system,system-ui,sans-serif;
+    --font-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
+    --n0:#6b7280;--n1:#2563eb;--n2:#b45309;--n3:#b91c1c;
+  }
+  *{box-sizing:border-box}
+  body{font-family:var(--font-texte);color:var(--texte);background:var(--clair);margin:0;line-height:1.6}
+  header.doc{background:linear-gradient(135deg,var(--ardoise-fonce),var(--ardoise));color:#fff;padding:40px 20px 34px}
+  .wrap{max-width:960px;margin:0 auto}
+  header.doc h1{font-family:var(--font-titre);margin:.2em 0;font-size:28px}
+  header.doc p{opacity:.9;font-size:15px;margin:.3em 0}
+  .tagline{color:var(--cuivre-clair);font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:13px}
+  main{max-width:960px;margin:0 auto;padding:26px 20px 70px}
+  h2{font-family:var(--font-titre);color:var(--ardoise);border-bottom:2px solid #dcd7d0;padding-bottom:6px;margin-top:36px}
+  code{font-family:var(--font-mono);font-size:13px;background:#ece7e1;padding:1px 6px;border-radius:4px}
+  pre{background:var(--ardoise-fonce);color:#e6e6e6;padding:13px 15px;border-radius:8px;overflow-x:auto;font-size:12.5px;line-height:1.5}
+  pre code{background:none;padding:0;color:inherit}
+  .warn{border-left:4px solid var(--n3);background:#fdecef;padding:12px 16px;border-radius:6px;margin:18px 0;font-size:14px}
+  .tabs{display:flex;gap:8px;margin:12px 0 4px}
+  .os{font-size:13px;font-weight:600;color:#555}
+  .grid{display:grid;gap:18px;margin-top:14px}
+  .card{background:#fff;border:1px solid #e2ddd6;border-radius:10px;padding:18px 20px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .top{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px}
+  .num{font-family:var(--font-titre);font-weight:700;color:var(--cuivre);font-size:15px;white-space:nowrap}
+  .card h3{font-family:var(--font-titre);margin:0;font-size:19px;color:var(--ardoise);flex:1 1 auto}
+  .badges{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 2px}
+  .badge{display:inline-block;font-size:12px;font-weight:600;padding:2px 9px;border-radius:20px;color:#fff}
+  .lvl0{background:var(--n0)}.lvl1{background:var(--n1)}.lvl2{background:var(--n2)}.lvl3{background:var(--n3)}
+  .meta{background:var(--clair);color:#444;border:1px solid #e2ddd6}
+  .ci{background:var(--ardoise);color:#fff}
+  .sum{margin:12px 0 10px;font-size:14.5px}
+  .attack{margin:6px 0 12px;padding-left:20px}.attack li{font-size:14px;margin:3px 0}
+  .attack li code{font-size:12.5px}
+  .box{border-radius:7px;padding:9px 13px;margin:9px 0;font-size:13.5px}
+  .tip{background:#fff6e9;border-left:4px solid var(--cuivre)}
+  .exp{background:#eaf6ef;border-left:4px solid #1b7f4b}
+  .fix{background:#eef3fb;border-left:4px solid var(--n1)}
+  .fix pre{margin:7px 0 0}
+  .links{display:flex;flex-wrap:wrap;gap:8px;border-top:1px dashed #e2ddd6;padding-top:12px;margin-top:4px}
+  .links a{text-decoration:none;font-size:13.5px;font-weight:600;padding:7px 14px;border-radius:7px;background:var(--cuivre);color:#fff}
+  .links a:hover{background:var(--cuivre-clair)}
+  footer.doc{text-align:center;color:#8a8f98;font-size:13px;margin:40px 0 24px}
+  @media (prefers-color-scheme:dark){
+    body{background:#15191e;color:#d7dae0}
+    .card{background:#1e242b;border-color:#2b333c;box-shadow:none}
+    .card h3,h2,.num{color:var(--cuivre-clair)}h2{border-color:#2b333c}
+    code{background:#2b333c;color:#e6e6e6}.meta{background:#2b333c;color:#cdd2d9;border-color:#3a434d}
+    .tip{background:#2a2114}.exp{background:#122a1d}.fix{background:#15202e}.warn{background:#2a1416;color:#f3c7cd}
+  }
+  @media print{body{background:#fff}header.doc{background:#fff;color:#000}.tagline{color:#a85f2e}.card{box-shadow:none;break-inside:avoid}}
+</style>
+</head>
+<body>
+
+<header class="doc">
+  <div class="wrap">
+    <p class="tagline">Résistez aux hackeurs · CI/CD &amp; DevSecOps</p>
+    <h1>DevSecShop - Page TP</h1>
+    <p>Récupère le lab, lance-le en Docker, et pour chaque TP : exploite la faille, corrige-la, reteste.</p>
+  </div>
+</header>
+
+<main>
+
+  <div class="warn">
+    <strong>Lab volontairement vulnérable.</strong> À lancer en local uniquement, jamais exposé sur Internet.
+  </div>
+
+  <h2>1. Récupérer le dépôt</h2>
+  <p class="os">Remplace l'URL par celle du dépôt GitHub qui t'a été communiqué.</p>
+  <pre><code>git clone https://github.com/resistezauxhackeurs/devsecshop.git
+cd app_devsecshop</code></pre>
+  <p>Prérequis : <strong>Docker Desktop</strong> (ou Docker Engine + Compose v2) et <strong>git</strong>. Rien d'autre à installer : Node tourne dans le conteneur.</p>
+
+  <h2>2. Lancer l'application</h2>
+  <pre><code>docker compose up --build -d     # app -> http://localhost:3000
+docker compose logs -f app       # logs
+docker compose down              # arret</code></pre>
+  <p>Comptes de démo : <code>admin</code>, <code>alice</code> (mot de passe <code>password</code>), <code>bob</code>.</p>
+
+  <h2>3. Lancer les tests (dans Docker)</h2>
+  <p>Le <code>npm test</code> direct suppose Node 20 en local ; dans ce lab on passe par Docker :</p>
+  <pre><code># Linux / macOS / Git Bash
+./scripts/test.sh
+# Windows
+scripts\test.bat</code></pre>
+
+  <h2>4. Récupérer le correctif de référence</h2>
+  <p>Essaie d'abord de corriger toi-même. Pour comparer ou débloquer, chaque TP a une branche solution <strong>cumulative</strong> :</p>
+  <pre><code>git fetch origin
+git diff main origin/solution/tp3    # comparer ta correction au corrige du TP3
+git checkout solution/tp3            # ou basculer sur l'etat corrige
+git checkout main                    # revenir a l'etat vulnerable</code></pre>
+
+  <h2>5. Les TP</h2>
+  <div class="grid">
+
+    <div class="card">
+      <div class="top"><span class="num">TP 0 · intro</span><h3>Comment une appli se fait compromettre</h3></div>
+      <div class="badges"><span class="badge lvl0">Intro</span><span class="badge meta">45 min</span><span class="badge ci">Appli PHP séparée · port 8080</span></div>
+      <p class="sum">Avant de défendre, voir une compromission complète de bout en bout : d'un champ de login jusqu'à l'exécution de commandes sur le serveur.</p>
+      <ul class="attack">
+        <li>SQLi : <code>admin'-- -</code> (entrer sans mot de passe)</li>
+        <li>Récupérer les identifiants admin</li>
+        <li>Upload d'un webshell (Content-Type falsifié)</li>
+        <li>RCE : <code>uploads/shell.php?cmd=id</code></li>
+      </ul>
+      <div class="box tip">💡 <strong>Astuce.</strong> Fais l'upload sous Kali/WSL/Linux (<code>-F "image=@shell.php;type=image/png"</code>) ou via Burp : le curl de Windows a un bug sur l'envoi de fichier.</div>
+      <div class="box exp">✅ <strong>Résultat attendu.</strong> <code>uploads/shell.php?cmd=id</code> renvoie <code>uid=33(www-data)</code> : tu exécutes des commandes sur le serveur = compromission totale.</div>
+      <div class="box fix">🚀 <strong>Lancer ce lab (séparé, à la racine du dépôt).</strong>
+        <pre><code>cd intro
+docker compose -f docker-compose.local.yml up -d --build   # -> http://localhost:8080</code></pre></div>
+      <div class="links"><a href="tp0.html">Énoncé complet</a></div>
+    </div>
+
+    <div class="card">
+      <div class="top"><span class="num">TP 1 / 8</span><h3>Socle &amp; première pipeline</h3></div>
+      <div class="badges"><span class="badge lvl0">Niveau 0</span><span class="badge meta">1 h 15</span><span class="badge ci">CI : build + lint + test</span></div>
+      <p class="sum">Mettre le lab en route, visiter l'app, forker et voir tourner la première pipeline (sans contrôle sécurité).</p>
+      <div class="box tip">💡 <strong>Astuce.</strong> Garde Docker Desktop lancé. Au fork sur GitHub, l'onglet <em>Actions</em> montre la CI racine qui s'exécute.</div>
+      <div class="box exp">✅ <strong>Résultat attendu.</strong> App accessible sur <code>localhost:3000</code>, pipeline verte au fork.</div>
+      <div class="links"><a href="tp1.html">Énoncé complet</a></div>
+    </div>
+
+    <div class="card">
+      <div class="top"><span class="num">TP 2 / 8</span><h3>Secrets exposés</h3></div>
+      <div class="badges"><span class="badge lvl1">Niveau 1</span><span class="badge meta">1 h</span><span class="badge ci">+ secret scanning (gitleaks)</span></div>
+      <p class="sum">Repérer les secrets dans le dépôt et forger un jeton admin avec le secret JWT fuité.</p>
+      <ul class="attack"><li>Secrets dans <code>.env</code> / <code>src/lib/config.js</code></li><li>Forger un cookie admin (secret JWT connu)</li></ul>
+      <div class="box tip">💡 <strong>Astuce.</strong> Décode le cookie <code>session</code> sur jwt.io, repasse <code>is_admin:true</code>, resigne avec le secret trouvé.</div>
+      <div class="box exp">✅ <strong>Résultat attendu.</strong> gitleaks rouge sur le secret planté ; après fix (secrets en variables d'env), gitleaks au vert.</div>
+      <div class="box fix">🔧 <strong>Corrige la vuln puis reteste.</strong>
+        <pre><code>./scripts/test.sh
+git diff main origin/solution/tp2   # corrige de reference</code></pre></div>
+      <div class="links"><a href="tp2.html">Énoncé complet</a></div>
+    </div>
+
+    <div class="card">
+      <div class="top"><span class="num">TP 3 / 8</span><h3>Injection SQL &amp; brute force</h3></div>
+      <div class="badges"><span class="badge lvl1">Niveau 1</span><span class="badge meta">1 h 30</span><span class="badge ci">+ SAST (Semgrep)</span></div>
+      <p class="sum">Contourner l'authentification, exfiltrer les comptes par UNION, brute-forcer le login.</p>
+      <ul class="attack"><li>Bypass : <code>username = admin'-- -</code></li><li>UNION sur <code>/products/search</code> (6 colonnes)</li><li>Brute force (aucune limite)</li></ul>
+      <div class="box tip">💡 <strong>Astuce.</strong> Garde l'espace après <code>--</code>. Pour l'UNION : <code>' UNION SELECT id, username||':'||password, email, 0, '', 0 FROM users-- -</code>.</div>
+      <div class="box exp">✅ <strong>Résultat attendu.</strong> Après fix : <code>admin'-- -</code> → 401, plus aucun hash fuité, 429 après 5 essais, Semgrep au vert.</div>
+      <div class="box fix">🔧 <strong>Corrige la vuln puis reteste.</strong>
+        <pre><code>./scripts/test.sh
+git diff main origin/solution/tp3</code></pre></div>
+      <div class="links"><a href="tp3.html">Énoncé complet</a></div>
+    </div>
+
+    <div class="card">
+      <div class="top"><span class="num">TP 4 / 8</span><h3>SSRF, XXE &amp; dépendances</h3></div>
+      <div class="badges"><span class="badge lvl1">Niveau 1</span><span class="badge meta">1 h 45</span><span class="badge ci">+ SCA + DAST (ZAP)</span></div>
+      <p class="sum">Atteindre le service interne (SSRF), lire un fichier serveur (XXE), repérer les dépendances vulnérables.</p>
+      <ul class="attack"><li>SSRF : <code>/admin/import-image?url=http://internal-metadata:5678/</code></li><li>XXE : entité <code>SYSTEM "file:///etc/passwd"</code></li><li>Dépendances (lodash, libxmljs2…)</li></ul>
+      <div class="box tip">💡 <strong>Astuce.</strong> Pour l'XXE, poste un XML avec <code>&lt;!DOCTYPE … [&lt;!ENTITY xxe SYSTEM "file:///etc/passwd"&gt;]&gt;</code> et place <code>&amp;xxe;</code> dans un <code>&lt;name&gt;</code>.</div>
+      <div class="box exp">✅ <strong>Résultat attendu.</strong> Après fix : IP interne/loopback → 403, entité externe non résolue, <code>npm audit</code> sans HIGH/CRITICAL non traité.</div>
+      <div class="box fix">🔧 <strong>Corrige la vuln puis reteste.</strong>
+        <pre><code>./scripts/test.sh
+git diff main origin/solution/tp4</code></pre></div>
+      <div class="links"><a href="tp4.html">Énoncé complet</a></div>
+    </div>
+
+    <div class="card">
+      <div class="top"><span class="num">TP 5 / 8</span><h3>Désérialisation non fiable (RCE)</h3></div>
+      <div class="badges"><span class="badge lvl2">Niveau 2</span><span class="badge meta">1 h</span><span class="badge ci">SAST + SCA (invisible au DAST)</span></div>
+      <p class="sum">Un cookie de préférences désérialisé avec node-serialize exécute du code.</p>
+      <ul class="attack"><li>Cookie <code>prefs</code> (base64)</li><li>RCE via <code>_$$ND_FUNC$$_</code></li></ul>
+      <div class="box tip">💡 <strong>Astuce.</strong> La charge est une IIFE : <code>{"x":"_$$ND_FUNC$$_function(){require('child_process').execSync('…')}()"}</code> encodée en base64 dans le cookie <code>prefs</code>.</div>
+      <div class="box exp">✅ <strong>Résultat attendu.</strong> Après passage au JSON pur : aucun code exécuté à la lecture des prefs, Semgrep au vert.</div>
+      <div class="box fix">🔧 <strong>Corrige la vuln puis reteste.</strong>
+        <pre><code>./scripts/test.sh
+git diff main origin/solution/tp5</code></pre></div>
+      <div class="links"><a href="tp5.html">Énoncé complet</a></div>
+    </div>
+
+    <div class="card">
+      <div class="top"><span class="num">TP 6 / 8</span><h3>Désérialisation YAML (js-yaml)</h3></div>
+      <div class="badges"><span class="badge lvl2">Niveau 2</span><span class="badge meta">1 h</span><span class="badge ci">SCA (version) + SAST (API)</span></div>
+      <p class="sum">L'import de réglages YAML avec js-yaml v3 exécute <code>!!js/function</code>.</p>
+      <ul class="attack"><li>Import de réglages YAML</li><li>RCE via <code>!!js/function</code></li></ul>
+      <div class="box tip">💡 <strong>Astuce.</strong> <code>require</code> n'existe pas dans le scope de la fonction : passe par <code>process.mainModule.require('child_process')</code>. Le vrai correctif = js-yaml v4.</div>
+      <div class="box exp">✅ <strong>Résultat attendu.</strong> Après migration v4 : aucune exécution ; le job SCA exige <code>js-yaml &gt;= 4</code> ; Semgrep flague la version 3.x dans <code>package.json</code>.</div>
+      <div class="box fix">🔧 <strong>Corrige la vuln puis reteste.</strong>
+        <pre><code>./scripts/test.sh
+git diff main origin/solution/tp6</code></pre></div>
+      <div class="links"><a href="tp6.html">Énoncé complet</a></div>
+    </div>
+
+    <div class="card">
+      <div class="top"><span class="num">TP 7 / 8</span><h3>Injection de commande</h3></div>
+      <div class="badges"><span class="badge lvl2">Niveau 2</span><span class="badge meta">1 h</span><span class="badge ci">SAST (CodeQL + Semgrep)</span></div>
+      <p class="sum">L'export catalogue concatène une entrée utilisateur dans une commande shell.</p>
+      <ul class="attack"><li>Champ <code>format</code> de <code>POST /admin/export</code></li></ul>
+      <div class="box tip">💡 <strong>Astuce.</strong> Le <code>format</code> est collé dans un <code>echo … "$format"</code> shell : <code>csv"; id; echo "</code> exécute <code>id</code>.</div>
+      <div class="box exp">✅ <strong>Résultat attendu.</strong> Après fix : format hors liste blanche → 400, aucune commande exécutée, CodeQL/Semgrep au vert.</div>
+      <div class="box fix">🔧 <strong>Corrige la vuln puis reteste.</strong>
+        <pre><code>./scripts/test.sh
+git diff main origin/solution/tp7</code></pre></div>
+      <div class="links"><a href="tp7.html">Énoncé complet</a></div>
+    </div>
+
+    <div class="card">
+      <div class="top"><span class="num">TP 8 / 8</span><h3>Logique métier, ReDoS &amp; capstone</h3></div>
+      <div class="badges"><span class="badge lvl3">Niveau 3 · Capstone</span><span class="badge meta">1 h 45</span><span class="badge ci">Gate CI + sécurité conteneur</span></div>
+      <p class="sum">Ce qu'aucun scanner ne trouve seul : IDOR, mass assignment, quantité négative, ReDoS. Puis verrouiller la pipeline.</p>
+      <ul class="attack"><li>IDOR sur <code>/account/orders/:id</code></li><li>Mass assignment : <code>is_admin=1</code></li><li>Quantité négative (total &lt; 0)</li><li>ReDoS sur le code promo</li></ul>
+      <div class="box tip">💡 <strong>Astuce.</strong> ReDoS : un coupon <code>"A"×40 + "!"</code> fige l'event loop. Mass assignment : ajoute <code>is_admin=1</code> au POST de profil.</div>
+      <div class="box exp">✅ <strong>Résultat attendu.</strong> Après fix : 404 sur l'IDOR, <code>is_admin</code> non forçable, total ≥ 0, checkout rapide, et la <strong>gate</strong> CI bloque si une faille réapparaît.</div>
+      <div class="box fix">🔧 <strong>Corrige la vuln puis reteste.</strong>
+        <pre><code>./scripts/test.sh
+git diff main origin/solution/tp8   # = etat capstone complet</code></pre></div>
+      <div class="links"><a href="tp8.html">Énoncé complet</a></div>
+    </div>
+
+  </div>
+
+  <footer class="doc">Formation CI/CD &amp; DevSecOps · DevSecShop · Résistez aux hackeurs</footer>
+</main>
+</body>
+</html>

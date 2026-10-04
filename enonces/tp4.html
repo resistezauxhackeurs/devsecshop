@@ -1,0 +1,103 @@
+<!-- tp4-ssrf-xxe-deps/enonce-etudiant.html -->
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TP4 — SSRF, XXE & dépendances</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🌐%3C/text%3E%3C/svg%3E">
+<style>
+:root{--bg:#f6f7f9;--ink:#1a1a2e;--accent:#0f3460;--accent2:#16213e;--red:#e94560;--code-bg:#1b1f2a;--ok:#1b7f4b;}
+*{box-sizing:border-box}body{font-family:system-ui,sans-serif;line-height:1.6;color:var(--ink);background:var(--bg);margin:0}
+.wrap{max-width:860px;margin:0 auto;padding:32px 20px 80px}
+header.doc{background:linear-gradient(135deg,#16213e,#0f3460);color:#fff;padding:36px 20px;border-radius:0 0 16px 16px}
+header.doc h1{margin:0 0 6px;font-size:25px}header.doc .meta{opacity:.85;font-size:14px}
+.badge{display:inline-block;background:var(--red);color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px}
+h2{color:var(--accent2);margin-top:34px;border-bottom:2px solid #e3e6ea;padding-bottom:6px}h3{color:var(--accent);margin-top:22px}
+code{background:#eef0f3;padding:1px 6px;border-radius:4px;font-size:90%}
+pre{background:var(--code-bg);color:#e6e6e6;padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.5}
+pre code{background:none;padding:0;color:inherit}
+.obj{border-left:4px solid var(--ok);background:#eaf6ef;padding:12px 16px;border-radius:6px;margin:16px 0}
+.note{border-left:4px solid var(--accent);background:#eef3fb;padding:12px 16px;border-radius:6px;margin:16px 0}
+.warn{border-left:4px solid var(--red);background:#fdecef;padding:12px 16px;border-radius:6px;margin:16px 0}
+.partA{border-top:3px solid var(--red)}.partB{border-top:3px solid var(--ok)}
+.livrable{background:#fff7e6;border:1px solid #ffe2a8;border-radius:8px;padding:14px 18px;margin-top:12px}
+ul.clean{padding-left:20px}footer.doc{text-align:center;color:#8a8f98;font-size:13px;margin-top:50px}
+</style></head>
+<body>
+<header class="doc"><div class="wrap" style="padding:0">
+<span class="badge">TP 4 / 8 — NIVEAU 1</span>
+<h1>🌐 SSRF, XXE &amp; dépendances vulnérables</h1>
+<div class="meta">Jour 1 · Capacités CI ajoutées : <strong>SCA</strong> (npm audit / Dependabot) + <strong>DAST</strong> (ZAP baseline) · Durée : 1 h 45</div>
+</div></header>
+<div class="wrap">
+
+<div class="obj"><strong>Objectifs</strong>
+<ul class="clean">
+<li>Exploiter une <strong>SSRF</strong> (atteindre un service interne / les métadonnées cloud).</li>
+<li>Exploiter une <strong>XXE</strong> (lire un fichier du serveur via une entité externe).</li>
+<li>Repérer les <strong>dépendances vulnérables</strong> (SCA) et lancer un <strong>scan DAST</strong> (ZAP) dans la pipeline.</li>
+<li>Corriger : allowlist réseau pour la SSRF, désactivation des entités pour la XXE, mise à jour des dépendances.</li>
+</ul></div>
+
+<div class="note" data-flux="git"><strong>⚙️ Flux de ce lab (git)</strong>
+<ul class="clean">
+<li><strong>Récupérer :</strong> <code>git clone &lt;URL-GitHub&gt; &amp;&amp; cd app_devsecshop</code></li>
+<li><strong>Lancer :</strong> <code>docker compose up --build -d</code> &rarr; http://localhost:3000</li>
+<li><strong>Tester :</strong> <code>./scripts/test.sh</code> (Linux / Git Bash) ou <code>scripts	est.bat</code> (Windows) &mdash; les tests tournent dans Docker.</li>
+<li><strong>Corriger puis comparer :</strong> écris ton correctif, relance les tests, puis compare au corrigé de référence : <code>git diff main origin/solution/tp4</code> ou <code>git checkout solution/tp4</code>.</li>
+</ul>
+Dans cet énoncé, « versions fournies » et <code>npm test</code> renvoient à ce flux (le correctif de référence est la branche <code>solution/tp4</code>).</div>
+
+<h2 class="partA">Partie A — Comprendre &amp; exploiter</h2>
+<p>Ces fonctions sont dans le back-office. Connectez-vous en admin (SQLi du TP3 : <code>admin'-- -</code>) avant d'attaquer.</p>
+
+<h3>A.1 — SSRF via l'import d'image</h3>
+<p>Le back-office « importe une image depuis une URL » : le serveur va chercher l'URL que <em>vous</em> fournissez. Rien ne l'empêche de viser le réseau interne. Le lab démarre un service interne (<code>internal-metadata</code>) non exposé publiquement :</p>
+<pre><code>GET /admin/import-image?url=http://internal-metadata:5678/
+# ou, hors docker, un service local :
+GET /admin/import-image?url=http://127.0.0.1:5678/
+# cible classique en cloud (métadonnées) :
+GET /admin/import-image?url=http://169.254.169.254/latest/meta-data/</code></pre>
+<p>La réponse renvoie le contenu du service interne : vous avez fait parler le serveur à sa place.</p>
+<div class="livrable"><strong>Question 1.</strong> Quelle donnée interne avez-vous récupérée ? En quoi la SSRF est-elle dangereuse en environnement cloud ?</div>
+
+<h3>A.2 — XXE via l'import de catalogue</h3>
+<p>L'import de catalogue parse du XML avec les entités externes activées. On déclare une entité qui lit un fichier :</p>
+<pre><code>POST /admin/import-catalog    (Content-Type: application/xml)
+
+&lt;?xml version="1.0"?&gt;
+&lt;!DOCTYPE catalog [ &lt;!ENTITY xxe SYSTEM "file:///etc/passwd"&gt; ]&gt;
+&lt;catalog&gt;&lt;product&gt;&lt;name&gt;&amp;xxe;&lt;/name&gt;&lt;/product&gt;&lt;/catalog&gt;</code></pre>
+<p>Le nom de produit renvoyé contient le contenu de <code>/etc/passwd</code>. On peut aussi viser une URL interne (XXE → SSRF).</p>
+<div class="livrable"><strong>Question 2.</strong> Montrez la fuite de fichier. Quelle option du parseur rend l'attaque possible ?</div>
+
+<h3>A.3 — Dépendances vulnérables</h3>
+<pre><code>npm audit                 # liste les vulns des dépendances
+npm audit --audit-level=high</code></pre>
+<p>Repérez au moins <code>lodash</code> (critical) et <code>js-yaml</code> (high). Notez les CVE : elles reviendront aux TP5/6.</p>
+<div class="livrable"><strong>Question 3.</strong> Citez deux dépendances vulnérables et le type de faille associé.</div>
+
+<h2 class="partB">Partie B — Détecter &amp; corriger en CI/CD</h2>
+
+<h3>B.1 — SCA : composition logicielle</h3>
+<p>Ajoutez <code>.github/workflows/04-sca-dast.yml</code> (jobs <em>sca</em> + <em>dast</em>) et <code>.github/dependabot.yml</code>. Le job <em>sca</em> fait échouer le build si une vuln <code>high</code>+ est présente (npm audit + OSV-Scanner). Dependabot ouvrira des PR de mise à jour automatiques.</p>
+
+<h3>B.2 — DAST : scan dynamique avec ZAP</h3>
+<p>Le job <em>dast</em> démarre l'appli (<code>docker compose up</code>) puis lance <strong>ZAP baseline</strong> contre <code>http://localhost:3000</code>. ZAP trouve dynamiquement des classes de failles (dont la SSRF réfléchie, les en-têtes manquants). Les seuils sont dans <code>.zap/rules.tsv</code>.</p>
+<div class="note">DAST = on attaque l'appli qui tourne ; SCA = on inspecte les dépendances ; SAST (TP3) = on lit le code. Trois angles, trois familles de failles. Aucun ne suffit seul.</div>
+
+<h3>B.3 — Corriger</h3>
+<ul class="clean">
+<li><strong>SSRF</strong> : remplacez <code>src/routes/admin.js</code> par la version fournie. Elle valide le schéma (http/https), résout l'hôte et <strong>refuse toute IP privée/loopback/link-local</strong>, et ne suit pas les redirections.</li>
+<li><strong>XXE</strong> : même fichier — le XML est parsé sans substitution d'entités, sans DTD externe, sans réseau (<code>noent:false, dtdload:false, nonet:true</code>).</li>
+<li><strong>Dépendances</strong> : appliquez les PR Dependabot / <code>npm audit fix</code> au fil des TP (certaines versions ne seront bumpées qu'aux TP5/6 où on traite la faille correspondante).</li>
+</ul>
+
+<h3>B.4 — Vérifier</h3>
+<pre><code>npm test     # tests/ssrf.test.js et tests/xxe.test.js doivent passer</code></pre>
+<ul class="clean">
+<li>SSRF vers <code>127.0.0.1</code> → 403 ; vers <code>169.254.169.254</code> → 403 ; <code>file://</code> → 400.</li>
+<li>XXE : l'entité externe n'est plus résolue (aucune fuite de <code>/etc/passwd</code>).</li>
+<li>L'import d'image légitime (URL publique) et l'import XML légitime fonctionnent toujours.</li>
+</ul>
+<div class="livrable"><strong>Livrables :</strong> Q1–Q3 ; preuve SSRF + XXE (avant) ; rapport <code>npm audit</code> ; capture du job ZAP ; <code>npm test</code> au vert (après).</div>
+
+<footer class="doc">Formation CI/CD &amp; DevSecOps · Résistez aux hackeurs · TP4 — énoncé étudiant</footer>
+</div></body></html>

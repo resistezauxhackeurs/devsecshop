@@ -1,0 +1,49 @@
+<!-- tp7-command-injection/enonce-etudiant.html -->
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TP7 — Injection de commande</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🖥️%3C/text%3E%3C/svg%3E">
+<style>:root{--bg:#f6f7f9;--ink:#1a1a2e;--accent:#0f3460;--accent2:#16213e;--red:#e94560;--code-bg:#1b1f2a;--ok:#1b7f4b;}*{box-sizing:border-box}body{font-family:system-ui,sans-serif;line-height:1.6;color:var(--ink);background:var(--bg);margin:0}.wrap{max-width:860px;margin:0 auto;padding:32px 20px 80px}h2{color:var(--accent2);margin-top:34px;border-bottom:2px solid #e3e6ea;padding-bottom:6px}h3{color:var(--accent);margin-top:22px}code{background:#eef0f3;padding:1px 6px;border-radius:4px;font-size:90%}pre{background:var(--code-bg);color:#e6e6e6;padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.5}pre code{background:none;padding:0;color:inherit}.obj{border-left:4px solid var(--ok);background:#eaf6ef;padding:12px 16px;border-radius:6px;margin:16px 0}.note{border-left:4px solid var(--accent);background:#eef3fb;padding:12px 16px;border-radius:6px;margin:16px 0}.warn{border-left:4px solid var(--red);background:#fdecef;padding:12px 16px;border-radius:6px;margin:16px 0}.partA{border-top:3px solid var(--red)}.partB{border-top:3px solid var(--ok)}.livrable{background:#fff7e6;border:1px solid #ffe2a8;border-radius:8px;padding:14px 18px;margin-top:12px}.ans{border-left:4px solid var(--ok);background:#eaf6ef;padding:12px 16px;border-radius:6px;margin:14px 0}.tip{border-left:4px solid var(--accent);background:#eef3fb;padding:12px 16px;border-radius:6px;margin:14px 0}table{border-collapse:collapse;width:100%;margin:12px 0}th,td{border:1px solid #e3e6ea;padding:8px 10px;text-align:left;font-size:14px}th{background:#f0f2f5}ul.clean{padding-left:20px}.badge{display:inline-block;background:var(--red);color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px}header.doc{background:linear-gradient(135deg,#2a1a3e,#0f3460);color:#fff;padding:34px 20px;border-radius:0 0 16px 16px}header.doc h1{margin:6px 0 0;font-size:24px}header.doc .meta{opacity:.85;font-size:14px;margin-top:6px}footer.doc{text-align:center;color:#8a8f98;font-size:13px;margin-top:50px}.tree{background:#1b1f2a;color:#cfe3ff;padding:14px;border-radius:8px;font-size:13px;overflow-x:auto}</style></head><body>
+<header class="doc"><div class="wrap" style="padding:0"><span class="badge">TP 7 / 8 — NIVEAU 2</span>
+<h1>🖥️ Injection de commande (RCE)</h1>
+<div class="meta">Jour 2 · Détection : <strong>SAST</strong> (CodeQL + Semgrep) · Durée : 1 h</div></div></header>
+<div class="wrap">
+<div class="obj"><strong>Objectifs</strong><ul class="clean">
+<li>Exploiter une injection de commande dans l'export du back-office.</li>
+<li>Introduire <strong>CodeQL</strong> (analyse de flux) en plus de Semgrep.</li>
+<li>Corriger en supprimant le shell (génération en JS + liste blanche).</li></ul></div>
+
+<div class="note" data-flux="git"><strong>⚙️ Flux de ce lab (git)</strong>
+<ul class="clean">
+<li><strong>Récupérer :</strong> <code>git clone &lt;URL-GitHub&gt; &amp;&amp; cd app_devsecshop</code></li>
+<li><strong>Lancer :</strong> <code>docker compose up --build -d</code> &rarr; http://localhost:3000</li>
+<li><strong>Tester :</strong> <code>./scripts/test.sh</code> (Linux / Git Bash) ou <code>scripts	est.bat</code> (Windows) &mdash; les tests tournent dans Docker.</li>
+<li><strong>Corriger puis comparer :</strong> écris ton correctif, relance les tests, puis compare au corrigé de référence : <code>git diff main origin/solution/tp7</code> ou <code>git checkout solution/tp7</code>.</li>
+</ul>
+Dans cet énoncé, « versions fournies » et <code>npm test</code> renvoient à ce flux (le correctif de référence est la branche <code>solution/tp7</code>).</div>
+
+<h2 class="partA">Partie A — Comprendre &amp; exploiter</h2>
+<h3>A.1 — Le sink</h3>
+<p>L'export catalogue construit une commande shell à partir du champ <code>format</code> que vous contrôlez :</p>
+<pre><code>execSync('echo "Export au format ' + format + '"')</code></pre>
+<p>En injectant des métacaractères shell, on exécute des commandes arbitraires :</p>
+<pre><code>POST /admin/export
+format = csv"; id &gt; /tmp/cmdi_pwn.txt; echo "</code></pre>
+<div class="warn">RCE directe. Le DAST peut parfois la détecter en aveugle (fuzzing de métacaractères), mais le SAST la voit clairement dans le code : donnée utilisateur → commande shell.</div>
+<div class="livrable"><strong>Question 1.</strong> Preuve d'exécution. Quels métacaractères shell permettent d'enchaîner des commandes ?</div>
+
+<h2 class="partB">Partie B — Détecter &amp; corriger en CI/CD</h2>
+<h3>B.1 — CodeQL : l'analyse de flux</h3>
+<p>Ajoutez <code>.github/workflows/07-sast-codeql.yml</code>. <strong>CodeQL</strong> suit le <em>flux de données</em> (data flow) : il relie la source (l'entrée HTTP) au sink (<code>execSync</code>) et confirme le chemin d'attaque, avec moins de faux positifs qu'un simple motif. La règle Semgrep fournie fait le repérage rapide par motif.</p>
+<h3>B.2 — Corriger</h3>
+<p>Remplacez <code>src/routes/admin.js</code> par la version fournie. Le fix supprime totalement le shell :</p>
+<ul class="clean">
+<li><strong>Liste blanche</strong> de formats (<code>csv</code> / <code>json</code>) : toute autre valeur est rejetée (400).</li>
+<li>Le CSV/JSON est <strong>généré en JavaScript</strong>, sans <code>child_process</code>.</li>
+</ul>
+<div class="note">Règle générale : préférer ne pas lancer de shell. Si un binaire externe est indispensable, utiliser <code>execFile</code>/<code>spawn</code> avec un <strong>tableau d'arguments</strong> (jamais de chaîne concaténée passée à un shell).</div>
+<h3>B.3 — Vérifier</h3>
+<pre><code>npm test    # tests/cmdi.test.js</code></pre>
+<p>Le payload d'injection est refusé (400, aucune commande exécutée), l'export <code>csv</code>/<code>json</code> légitime fonctionne, Semgrep/CodeQL repassent au vert. À ce stade, <code>admin.js</code> est entièrement corrigé.</p>
+<div class="livrable"><strong>Livrables :</strong> Q1 + preuve RCE (avant) ; capture SAST rouge→vert ; <code>npm test</code> vert.</div>
+<footer class="doc">Formation CI/CD &amp; DevSecOps · Résistez aux hackeurs · TP7 — énoncé étudiant</footer>
+</div></body></html>

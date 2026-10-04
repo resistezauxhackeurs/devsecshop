@@ -1,0 +1,19 @@
+<%- include('partials/header') %>
+<!-- devsecshop/src/views/index.ejs -->
+<h1>Catalogue</h1>
+<div class="grid">
+  <% products.forEach(p => { %>
+    <div class="card">
+      <h3><a href="/products/<%= p.id %>"><%= p.name %></a></h3>
+      <p><%= p.description %></p>
+      <p class="price"><%= (p.price_cents/100).toFixed(2) %> €</p>
+      <form method="post" action="/cart/add">
+        <input type="hidden" name="product_id" value="<%= p.id %>">
+        <label>Quantité</label>
+        <input type="number" name="qty" value="1">
+        <button type="submit">Ajouter au panier</button>
+      </form>
+    </div>
+  <% }) %>
+</div>
+<%- include('partials/footer') %>
