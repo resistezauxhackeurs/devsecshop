@@ -19,7 +19,7 @@ Comptes de démo : `admin`, `alice` (mot de passe `password`), `bob`.
 ## TP 0 - intro : « comment une appli se fait compromettre »
 
 Avant DevSecShop, un petit lab PHP **séparé** (dossier `intro/`) : SQLi → récup admin →
-upload d'un webshell → exécution de commandes. Énoncé : `enonces/tp0.html`.
+upload d'un webshell → exécution de commandes. Énoncé : `intro/enonce/enonce-etudiant.html`.
 
 ```bash
 cd intro
@@ -28,11 +28,10 @@ docker compose -f docker-compose.local.yml up -d --build   # -> http://localhost
 
 ## Les TP (DevSecShop)
 
-Ouvre **`enonces/index.html`** (la page TP) : récupérer, lancer, et pour chaque TP
-l'astuce, le résultat attendu et le « corrige puis reteste ». Les énoncés complets
-sont dans `enonces/` (`tp1.html` … `tp8.html`). Chaque TP : **Partie A** tu exploites
-la faille sur l'app qui tourne ; **Partie B** tu corriges le code et tu ajoutes le
-contrôle CI/CD correspondant.
+Les énoncés des TP (TP1 à TP8) sont **fournis séparément** par le formateur. Chaque TP :
+**Partie A** tu exploites la faille sur l'app qui tourne ; **Partie B** tu corriges le
+code et tu ajoutes le contrôle CI/CD correspondant (le correctif de référence est sur la
+branche `solution/tpN`).
 
 ## Lancer les tests (abuse-cases)
 
