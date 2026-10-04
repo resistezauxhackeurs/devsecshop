@@ -1,0 +1,8 @@
+# devsecshop/.github/dependabot.yml
+# Met à jour automatiquement les dépendances vulnérables (ouvre des PR).
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule: { interval: "weekly" }
+    open-pull-requests-limit: 10

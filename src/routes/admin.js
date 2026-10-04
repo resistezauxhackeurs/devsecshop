@@ -1,20 +1,23 @@
 // devsecshop/src/routes/admin.js
-// Back-office administrateur.
+// Back-office — VERSION TP4 (SSRF + XXE corrigées).
 //
-// ⚠️ VULN (TP4 - SSRF)  : /admin/import-image?url= récupère une URL arbitraire
-//    côté serveur (accès réseau interne, métadonnées cloud, ports internes).
-// ⚠️ VULN (TP4 - XXE)   : /admin/import-catalog parse du XML avec entités
-//    externes activées (noent) -> lecture de fichiers, SSRF via entité.
-// ⚠️ VULN (TP6 - YAML)  : /admin/import-settings parse du YAML avec js-yaml 3
-//    load() (schéma complet) -> exécution de !!js/function.
-// ⚠️ VULN (TP7 - RCE)   : /admin/export construit une commande shell à partir
-//    d'une entrée utilisateur (injection de commande).
+// FIX SSRF  : l'URL d'import est validée (schéma http/https) et l'hôte est
+//             résolu puis refusé s'il pointe vers une IP privée/loopback/
+//             link-local. Les redirections ne sont pas suivies.
+// FIX XXE   : le XML est parsé SANS substitution d'entités ni chargement de
+//             DTD externe, et sans accès réseau (nonet).
+//
+// ⚠️ RESTENT VULNÉRABLES (corrigés plus tard) :
+//    - /import-settings (js-yaml load)  -> TP6
+//    - /export (injection de commande)  -> TP7
 
 'use strict';
 
 const express = require('express');
 const http = require('http');
 const https = require('https');
+const dns = require('dns').promises;
+const net = require('net');
 const { execSync } = require('child_process');
 const yaml = require('js-yaml');
 const router = express.Router();
@@ -26,53 +29,88 @@ router.get('/', requireAdmin, (req, res) => {
   res.render('admin', { products, result: null });
 });
 
-// --- SSRF -----------------------------------------------------------------
-// Récupère une image depuis une URL fournie par l'admin et renvoie sa taille.
-router.get('/import-image', requireAdmin, (req, res) => {
+// --- Helpers SSRF ---------------------------------------------------------
+// Vrai si l'IP est privée, loopback, link-local ou réservée.
+function isBlockedIp(ip) {
+  if (net.isIPv4(ip)) {
+    const [a, b] = ip.split('.').map(Number);
+    if (a === 10) return true;                       // 10.0.0.0/8
+    if (a === 127) return true;                      // loopback
+    if (a === 169 && b === 254) return true;         // link-local (métadonnées cloud)
+    if (a === 172 && b >= 16 && b <= 31) return true;// 172.16.0.0/12
+    if (a === 192 && b === 168) return true;         // 192.168.0.0/16
+    if (a === 0) return true;                        // 0.0.0.0/8
+    return false;
+  }
+  if (net.isIPv6(ip)) {
+    const low = ip.toLowerCase();
+    if (low === '::1') return true;                  // loopback
+    if (low.startsWith('fe80')) return true;         // link-local
+    if (low.startsWith('fc') || low.startsWith('fd')) return true; // unique local
+    if (low.startsWith('::ffff:')) return isBlockedIp(low.replace('::ffff:', '')); // IPv4-mapped
+    return false;
+  }
+  return true; // format inconnu -> on refuse
+}
+
+// --- SSRF (corrigé) -------------------------------------------------------
+router.get('/import-image', requireAdmin, async (req, res) => {
   const url = req.query.url;
   if (!url) return res.status(400).send('Paramètre url manquant.');
 
-  const client = url.startsWith('https') ? https : http;
-  // ⚠️ SSRF : aucune validation de l'hôte/ IP de destination.
-  client
-    .get(url, (r) => {
-      let data = '';
-      r.on('data', (chunk) => (data += chunk));
-      r.on('end', () => {
-        res.send(
-          `Récupéré ${data.length} octets depuis ${url}\n\n` +
-            data.slice(0, 2000)
-        );
-      });
-    })
-    .on('error', (e) => res.status(502).send('Erreur fetch : ' + e.message));
+  let parsed;
+  try { parsed = new URL(url); } catch (e) { return res.status(400).send('URL invalide.'); }
+
+  // FIX : seuls http/https sont autorisés (bloque file:, gopher:, etc.).
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return res.status(400).send('Schéma non autorisé.');
+  }
+
+  // FIX : on résout l'hôte et on refuse toute IP interne.
+  try {
+    const records = await dns.lookup(parsed.hostname, { all: true });
+    if (records.some((r) => isBlockedIp(r.address))) {
+      return res.status(403).send('Destination interne interdite.');
+    }
+  } catch (e) {
+    return res.status(400).send('Hôte introuvable.');
+  }
+
+  const client = parsed.protocol === 'https:' ? https : http;
+  // On ne suit pas les redirections (une 3xx vers une IP interne serait un contournement).
+  const request = client.get(url, { headers: { Accept: 'image/*' } }, (r) => {
+    if (r.statusCode >= 300 && r.statusCode < 400) {
+      r.destroy();
+      return res.status(400).send('Redirection refusée.');
+    }
+    let size = 0;
+    r.on('data', (c) => (size += c.length));
+    r.on('end', () => res.send(`Image récupérée (${size} octets) depuis ${parsed.hostname}`));
+  });
+  request.on('error', (e) => res.status(502).send('Erreur fetch.'));
+  request.setTimeout(5000, () => { request.destroy(); res.status(504).send('Timeout.'); });
 });
 
-// --- XXE ------------------------------------------------------------------
-// Importe un catalogue produit au format XML (corps application/xml).
+// --- XXE (corrigé) --------------------------------------------------------
 router.post('/import-catalog', requireAdmin, (req, res) => {
-  const xml = req.body; // texte brut (middleware express.text)
+  const xml = req.body;
   try {
-    // Chargé à la demande (module natif, requis seulement pour cet import).
     const libxml = require('libxmljs2');
-    // ⚠️ XXE : noent=true résout les entités externes ; dtdload autorise le DTD.
-    const doc = libxml.parseXml(xml, { noent: true, dtdload: true, nonet: false });
+    // FIX : pas de substitution d'entités (noent défaut=false), pas de DTD
+    // externe (dtdload=false), pas d'accès réseau (nonet=true).
+    const doc = libxml.parseXml(xml, { noent: false, dtdload: false, nonet: true });
     const names = doc.find('//product/name').map((n) => n.text());
     res.send('Produits importés : ' + JSON.stringify(names));
   } catch (e) {
-    res.status(400).send('XML invalide : ' + e.message);
+    res.status(400).send('XML invalide.');
   }
 });
 
-// --- Désérialisation YAML -------------------------------------------------
-// Importe des réglages de boutique au format YAML.
+// --- Désérialisation YAML (⚠️ ENCORE VULNÉRABLE — corrigé au TP6) ----------
 router.post('/import-settings', requireAdmin, (req, res) => {
   const text = req.body.yaml || '';
   try {
-    // ⚠️ js-yaml 3 : load() utilise le schéma complet et accepte !!js/function.
     const settings = yaml.load(text);
-    // La concaténation ci-dessous appelle settings.toString() : si le YAML a
-    // défini toString via !!js/function, le code est exécuté ici (RCE).
     console.log('Réglages importés : ' + settings);
     res.json({ ok: true, applied: Object.keys(settings || {}) });
   } catch (e) {
@@ -80,18 +118,14 @@ router.post('/import-settings', requireAdmin, (req, res) => {
   }
 });
 
-// --- Injection de commande ------------------------------------------------
-// Exporte le catalogue dans un format choisi (génère un fichier via un outil shell).
+// --- Injection de commande (⚠️ ENCORE VULNÉRABLE — corrigé au TP7) ---------
 router.post('/export', requireAdmin, (req, res) => {
   const format = req.body.format || 'csv';
   try {
-    // ⚠️ Injection : `format` est concaténé dans une commande shell.
-    const out = execSync('echo "Export au format ' + format + '" ', {
-      encoding: 'utf8'
-    });
+    const out = execSync('echo "Export au format ' + format + '" ', { encoding: 'utf8' });
     res.send('<pre>' + out + '</pre>');
   } catch (e) {
-    res.status(500).send('Erreur export : ' + e.message);
+    res.status(500).send('Erreur export.');
   }
 });
 

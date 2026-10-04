@@ -1,0 +1,41 @@
+# devsecshop/.github/workflows/04-sca-dast.yml
+# TP4 — Analyse de composition (SCA) + scan dynamique (DAST ZAP).
+name: Security - SCA & DAST
+on:
+  push:
+  pull_request:
+jobs:
+  sca:
+    name: Dépendances (npm audit + OSV-Scanner)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm install
+      # Échoue si une vuln de sévérité >= high est présente.
+      - name: npm audit
+        run: npm audit --audit-level=high
+      - name: OSV-Scanner
+        uses: google/osv-scanner-action@v1
+        with:
+          scan-args: "--lockfile=package-lock.json"
+
+  dast:
+    name: ZAP Baseline (DAST)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Démarrer l'appli
+        run: docker compose up -d --build
+      - name: Attendre que l'appli réponde
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/ && break || sleep 2
+          done
+      - name: ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: "http://localhost:3000"
+          rules_file_name: ".zap/rules.tsv"
+          cmd_options: "-a"
