@@ -22,6 +22,22 @@ pre code{background:none;padding:0;color:inherit}
 table{border-collapse:collapse;width:100%;margin:12px 0}th,td{border:1px solid #e3e6ea;padding:8px 10px;text-align:left;font-size:14px}th{background:#f0f2f5}
 ul.clean{padding-left:20px}footer.doc{text-align:center;color:#8a8f98;font-size:13px;margin-top:50px}
 .tag{font-size:12px;font-weight:700;padding:2px 8px;border-radius:5px;color:#fff}
+/* Corrections repliables (masquées par défaut) */
+details.solution{background:#fff;border:1px solid #cfe8d8;border-left:4px solid var(--ok);border-radius:8px;margin:10px 0 18px}
+details.solution>summary{cursor:pointer;padding:10px 16px;font-weight:700;color:var(--ok);list-style:none;user-select:none}
+details.solution>summary::-webkit-details-marker{display:none}
+details.solution>summary::before{content:"\25B6";display:inline-block;margin-right:.6rem;font-size:.75em;transition:transform .2s}
+details.solution[open]>summary::before{transform:rotate(90deg)}
+details.solution>summary:hover{color:#146c3f}
+.solution-body{padding:4px 18px 16px;border-top:1px solid #e3efe7}
+.solution-body>*:first-child{margin-top:0}
+.solution-body h4{color:var(--accent);margin:14px 0 4px;font-size:14px}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#eef3fb;border:1px solid #d9e4f5;border-radius:8px;padding:8px 14px;margin:18px 0}
+.toolbar span{color:#555;font-size:13px;margin-right:auto}
+.toolbar button{background:#fff;border:1px solid #c7d3e6;color:var(--accent2);padding:5px 12px;border-radius:6px;cursor:pointer;font:inherit;font-size:13px}
+.toolbar button:hover{border-color:var(--ok);color:var(--ok)}
+.theorie{border-left:4px solid #6b4fbb;background:#f1edfb;padding:12px 16px;border-radius:6px;margin:14px 0}
+.theorie h4{color:#4b3a86;margin:12px 0 4px;font-size:14px}.theorie>*:first-child{margin-top:0}
 </style></head>
 <body>
 <header class="doc"><div class="wrap" style="padding:0">
@@ -43,10 +59,16 @@ ul.clean{padding-left:20px}footer.doc{text-align:center;color:#8a8f98;font-size:
 <ul class="clean">
 <li><strong>Récupérer :</strong> <code>git clone &lt;URL-GitHub&gt; &amp;&amp; cd app_devsecshop</code></li>
 <li><strong>Lancer :</strong> <code>docker compose up --build -d</code> &rarr; http://localhost:3000</li>
-<li><strong>Tester :</strong> <code>./scripts/test.sh</code> (Linux / Git Bash) ou <code>scripts	est.bat</code> (Windows) &mdash; les tests tournent dans Docker.</li>
+<li><strong>Tester :</strong> <code>./scripts/test.sh</code> (Linux / Git Bash) ou <code>scripts\test.bat</code> (Windows) &mdash; les tests tournent dans Docker.</li>
 <li><strong>Corriger puis comparer :</strong> écris ton correctif, relance les tests, puis compare au corrigé de référence : <code>git diff main origin/solution/tp2</code> ou <code>git checkout solution/tp2</code>.</li>
 </ul>
 Dans cet énoncé, « versions fournies » et <code>npm test</code> renvoient à ce flux (le correctif de référence est la branche <code>solution/tp2</code>).</div>
+
+<div class="toolbar">
+  <span>Les corrections sont masquées. Cherche d'abord, puis déplie.</span>
+  <button onclick="document.querySelectorAll('details.solution').forEach(d=>d.open=true)">Tout afficher</button>
+  <button onclick="document.querySelectorAll('details.solution').forEach(d=>d.open=false)">Tout masquer</button>
+</div>
 
 <h2 class="partA">Partie A — Comprendre &amp; exploiter</h2>
 
@@ -57,6 +79,15 @@ grep -rniE "api[_-]?key|secret|password|token|sk_lab_" --include='*.js' --includ
 cat .env</code></pre>
 <p>Vous devez trouver au moins : une clé type Stripe en dur dans <code>src/lib/config.js</code>, et le fichier <code>.env</code> <strong>commité</strong> (secret JWT, mot de passe de base).</p>
 <div class="livrable"><strong>Question 1.</strong> Listez les secrets trouvés, leur emplacement, et pour chacun : que permet-il concrètement ?</div>
+<details class="solution"><summary>Correction 1</summary><div class="solution-body">
+<h4>Secrets présents dans le dépôt</h4>
+<ul class="clean">
+<li><strong>Clé type Stripe</strong> <code>sk_lab_...</code> : en dur dans <code>src/lib/config.js</code>. Permet d'appeler l'API de paiement au nom du marchand (créer des remboursements, lire des transactions).</li>
+<li><strong><code>JWT_SECRET</code></strong> (<code>devsecshop-super-secret-2023</code>) : dans <code>.env</code> <em>commité</em>, et en valeur par défaut dans le code. C'est la clé de signature des sessions : qui la connaît peut forger n'importe quel jeton, donc usurper n'importe quel compte (voir Q2).</li>
+<li><strong><code>DB_PASSWORD</code></strong> : dans <code>.env</code>. Donne un accès direct à la base si elle est jointe.</li>
+</ul>
+<p>Le fichier <code>.env</code> étant versionné, ces secrets sont aussi dans l'<strong>historique git</strong>, pas seulement dans le working tree.</p>
+</div></details>
 
 <h3>A.2 — Exploiter : forger un jeton d'administrateur</h3>
 <p>Le cookie <code>session</code> est un JWT signé en HS256 avec le secret <code>JWT_SECRET</code>… que vous venez de lire. Qui connaît le secret peut fabriquer n'importe quel jeton, donc se faire passer pour l'admin sans mot de passe.</p>
@@ -65,8 +96,25 @@ cat .env</code></pre>
 node -e "console.log(require('jsonwebtoken').sign({uid:1,username:'admin',is_admin:true},'devsecshop-super-secret-2023'))"</code></pre>
 <p>Dans Burp, remplacez la valeur du cookie <code>session</code> par ce jeton et rejouez une requête vers <code>/admin</code>. Vous êtes administrateur.</p>
 <div class="livrable"><strong>Question 2.</strong> Preuve d'accès au back-office avec le jeton forgé (capture). Pourquoi un secret <em>fort</em> mais présent dans le code ne protège-t-il pas davantage ?</div>
+<details class="solution"><summary>Correction 2</summary><div class="solution-body">
+<h4>Forge du jeton admin</h4>
+<p>Le cookie <code>session</code> est un JWT HS256 signé avec <code>JWT_SECRET</code>. Connaissant le secret, on fabrique un jeton qui se déclare admin :</p>
+<pre><code>node -e "console.log(require('jsonwebtoken').sign({uid:1,username:'admin',is_admin:true},'devsecshop-super-secret-2023'))"</code></pre>
+<p>On colle ce jeton dans le cookie <code>session</code> et <code>/admin</code> répond <strong>200</strong> : accès au back-office sans mot de passe.</p>
+<h4>Pourquoi la force du secret n'y change rien</h4>
+<p>La robustesse d'un secret protège contre le <em>devinement</em> (brute force). Elle ne protège en rien contre l'<strong>exposition</strong> : un secret de 64 caractères aléatoires, s'il est dans le code ou le dépôt, est lisible par quiconque a accès au dépôt, mais aussi à un fork, à un artefact de build ou à une image Docker. Dès qu'il est exposé, un secret est compromis, quelle que soit sa longueur. La seule parade est de ne jamais l'écrire dans le code (voir Partie B).</p>
+</div></details>
 
 <h2 class="partB">Partie B — Détecter &amp; corriger en CI/CD</h2>
+
+<div class="note"><strong>🛠️ Comment appliquer une correction (pas à pas)</strong>
+<p>Tu modifies le code <strong>sur ta machine</strong> (le dépôt cloné), avec ton éditeur — <strong>jamais à l'intérieur du conteneur</strong>.</p>
+<ol>
+<li>Édite le fichier chez toi.</li>
+<li>Reconstruis + relance (le <code>Dockerfile</code> COPIE le code, donc <code>--build</code>) : <pre><code>docker compose up --build -d</code></pre></li>
+<li>Vérifie : rejoue l'attaque (doit échouer) ou lance <code>./scripts/test.sh</code> (Windows : <code>scripts\test.bat</code>).</li>
+<li>Besoin d'aide : <code>git diff main origin/solution/tp2</code>.</li>
+</ol></div>
 
 <h3>B.1 — Scanner les secrets dans la pipeline</h3>
 <p>Ajoutez le workflow fourni <code>.github/workflows/02-secrets.yml</code> (gitleaks) et le fichier de config <code>.gitleaks.toml</code> à la racine. Poussez. Le job doit <strong>échouer</strong> : il trouve les secrets, y compris dans l'historique (<code>fetch-depth: 0</code>).</p>
@@ -81,17 +129,48 @@ git add test_secret.js && git commit -m "test"   # doit être BLOQUÉ par gitlea
 rm test_secret.js</code></pre>
 
 <h3>B.3 — Corriger le code</h3>
-<p>Remplacez <code>src/lib/config.js</code> par la version fournie (plus aucun secret en dur, lecture depuis l'environnement). Mettez à jour <code>.gitignore</code> (fourni : il ignore désormais <code>.env</code>) et ajoutez <code>.env.example</code> comme modèle.</p>
-<div class="warn"><strong>Supprimer ≠ révoquer.</strong> Un secret exposé est compromis <em>pour toujours</em>. Il faut : (1) le <strong>révoquer/roter</strong> côté fournisseur, (2) le purger de l'historique git.</div>
+
+<div class="theorie"><strong>💡 Théorie &amp; méthode</strong>
+<p>Un secret ne vit <strong>jamais</strong> dans le code ni dans le dépôt. Le code lit ses secrets depuis l'<strong>environnement</strong> (variables injectées au déploiement par un gestionnaire de secrets) ; le dépôt ne versionne qu'un <code>.env.example</code> sans valeur, et <code>.env</code> est ignoré. En dev, à défaut de <code>JWT_SECRET</code>, on génère un secret aléatoire éphémère au démarrage : rien de secret n'est écrit sur disque.</p>
+<p><strong>Supprimer n'est pas révoquer.</strong> Un secret exposé est compromis pour toujours : l'historique git est immuable. Deux gestes obligatoires : (1) le <strong>révoquer/roter</strong> côté fournisseur (d'abord), (2) le <strong>purger de l'historique</strong>.</p>
+<p><strong>Fonctions / outils à utiliser :</strong> <code>process.env.X</code>, <code>crypto.randomBytes()</code>, <code>git rm --cached</code>, <code>git filter-repo</code>.</p>
+</div>
+
+<div class="livrable"><strong>À toi.</strong> Sors les secrets de <code>config.js</code>, ignore <code>.env</code>, ajoute <code>.env.example</code>, puis purge l'historique. Vérifie : édite le code chez toi → <code>docker compose up --build -d</code> → <code>./scripts/test.sh</code>, et relance le job gitleaks (doit repasser au vert). Si tu bloques, déplie la correction.</div>
+
+<details class="solution"><summary>Voir la correction (code)</summary><div class="solution-body">
+<h4>Sortir les secrets de <code>config.js</code></h4>
+<pre><code>// ❌ AVANT — secrets en dur dans le code
+module.exports = {
+  paymentApiKey: 'sk_lab_0123456789abcdefghijklmnop',
+  jwtSecret: 'devsecshop-super-secret-2023',
+  // ...
+};
+
+// ✅ APRÈS — lecture exclusive depuis l'environnement
+const crypto = require('crypto');
+
+module.exports = {
+  // Clé de paiement : env uniquement, pas de valeur par défaut.
+  paymentApiKey: process.env.STRIPE_SECRET_KEY || null,
+  // Secret JWT : env en priorité ; sinon secret aléatoire éphémère (dev).
+  jwtSecret: process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex'),
+  // ...
+};</code></pre>
+<p>Puis ignorer <code>.env</code> (<code>.gitignore</code> fourni) et ajouter un <code>.env.example</code> sans valeur comme modèle.</p>
+<h4>Retirer <code>.env</code> du suivi + purger l'historique</h4>
 <pre><code># retirer .env du suivi (il reste en local) et committer
 git rm --cached .env
 git add .gitignore .env.example src/lib/config.js
-git commit -m "Secrets hors du code + .env ignoré"
+git commit -m "security: secrets hors du code + .env ignoré"
 
 # purge de l'historique (⚠️ réécrit l'historique)
 pip install git-filter-repo
 git filter-repo --path .env --invert-paths --force
 # puis forcer le push et prévenir l'équipe (historique réécrit)</code></pre>
+<p>Effet de bord utile : une fois <code>JWT_SECRET</code> roté, le jeton forgé au A.2 ne fonctionne plus.</p>
+<p class="meta">Corrigé complet de référence : <code>git checkout solution/tp2</code>. Théorie détaillée : <em>Guide détection &amp; correction</em> §1 (Secrets).</p>
+</div></details>
 
 <h3>B.4 — Vérifier</h3>
 <p>Relancez la pipeline après purge et correction : le job gitleaks doit repasser au <strong>vert</strong>. Le jeton forgé avec l'ancien secret ne doit plus fonctionner une fois <code>JWT_SECRET</code> roté.</p>

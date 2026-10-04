@@ -35,6 +35,22 @@
   ul.clean { padding-left: 20px; }
   .livrable { background:#fff7e6; border:1px solid #ffe2a8; border-radius:8px; padding:14px 18px; margin-top:12px; }
   footer.doc { text-align:center; color:#8a8f98; font-size:13px; margin-top:50px; }
+/* Corrections repliables (masquées par défaut) */
+details.solution{background:#fff;border:1px solid #cfe8d8;border-left:4px solid var(--ok);border-radius:8px;margin:10px 0 18px}
+details.solution>summary{cursor:pointer;padding:10px 16px;font-weight:700;color:var(--ok);list-style:none;user-select:none}
+details.solution>summary::-webkit-details-marker{display:none}
+details.solution>summary::before{content:"\25B6";display:inline-block;margin-right:.6rem;font-size:.75em;transition:transform .2s}
+details.solution[open]>summary::before{transform:rotate(90deg)}
+details.solution>summary:hover{color:#146c3f}
+.solution-body{padding:4px 18px 16px;border-top:1px solid #e3efe7}
+.solution-body>*:first-child{margin-top:0}
+.solution-body h4{color:var(--accent);margin:14px 0 4px;font-size:14px}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#eef3fb;border:1px solid #d9e4f5;border-radius:8px;padding:8px 14px;margin:18px 0}
+.toolbar span{color:#555;font-size:13px;margin-right:auto}
+.toolbar button{background:#fff;border:1px solid #c7d3e6;color:var(--accent2);padding:5px 12px;border-radius:6px;cursor:pointer;font:inherit;font-size:13px}
+.toolbar button:hover{border-color:var(--ok);color:var(--ok)}
+.theorie{border-left:4px solid #6b4fbb;background:#f1edfb;padding:12px 16px;border-radius:6px;margin:14px 0}
+.theorie h4{color:#4b3a86;margin:12px 0 4px;font-size:14px}.theorie>*:first-child{margin-top:0}
 </style>
 </head>
 <body>
@@ -63,9 +79,15 @@
 <ul class="clean">
 <li><strong>Récupérer :</strong> <code>git clone &lt;URL-GitHub&gt; &amp;&amp; cd app_devsecshop</code></li>
 <li><strong>Lancer :</strong> <code>docker compose up --build -d</code> &rarr; http://localhost:3000</li>
-<li><strong>Tester :</strong> <code>./scripts/test.sh</code> (Linux / Git Bash) ou <code>scripts	est.bat</code> (Windows) &mdash; les tests tournent dans Docker.</li>
+<li><strong>Tester :</strong> <code>./scripts/test.sh</code> (Linux / Git Bash) ou <code>scripts\test.bat</code> (Windows) &mdash; les tests tournent dans Docker.</li>
 <li>Les correctifs des TP suivants sont fournis sur les branches <code>solution/tp2</code> … <code>solution/tp8</code>.</li>
 </ul></div>
+
+<div class="toolbar">
+  <span>Les corrections sont masquées. Cherche d'abord, puis déplie.</span>
+  <button onclick="document.querySelectorAll('details.solution').forEach(d=>d.open=true)">Tout afficher</button>
+  <button onclick="document.querySelectorAll('details.solution').forEach(d=>d.open=false)">Tout masquer</button>
+</div>
 
 <h2>Contexte</h2>
 <p>
@@ -140,6 +162,21 @@ npm start            # http://localhost:3000</code></pre>
   <strong>Question 1.</strong> Listez les points d'entrée où une donnée fournie par l'utilisateur est traitée par
   le serveur (formulaires, paramètres d'URL, cookies). C'est votre carte d'attaque pour les 7 TP suivants.
 </div>
+<details class="solution"><summary>Correction 1</summary><div class="solution-body">
+<h4>Points d'entrée côté serveur</h4>
+<ul class="clean">
+<li><code>POST /login</code> : champs <code>username</code>, <code>password</code>.</li>
+<li><code>POST /register</code> : création de compte.</li>
+<li><code>GET /products/search?q=</code> : terme de recherche.</li>
+<li><code>POST /cart/add</code> : <code>product_id</code>, <code>qty</code>.</li>
+<li><code>POST /cart/checkout</code> : code promo (<code>coupon</code>).</li>
+<li><code>POST /account/profile</code> : mise à jour du profil (body entier).</li>
+<li><code>GET /account/orders/:id</code> : identifiant de commande.</li>
+<li>Cookies <code>prefs</code> (préférences) et <code>session</code> (JWT).</li>
+<li><code>/admin</code> : <code>import-image?url=</code>, <code>import-catalog</code> (XML), <code>import-settings</code> (YAML), <code>export</code> (format).</li>
+</ul>
+<p>Ce sont exactement les cibles des TP2 à TP8. Dessiner cette carte dès maintenant structure toute la suite : chaque faille qu'on exploitera vit derrière l'un de ces points d'entrée.</p>
+</div></details>
 </div>
 
 <div class="step">
@@ -157,6 +194,13 @@ npm start            # http://localhost:3000</code></pre>
   <strong>Question 2.</strong> Interceptez votre requête de connexion (<code>POST /login</code>). Repérez le cookie
   <code>session</code> renvoyé. À votre avis, que contient-il ? (On le décortiquera au TP sur les secrets.)
 </div>
+<details class="solution"><summary>Correction 2</summary><div class="solution-body">
+<h4>Un JWT, pas un identifiant opaque</h4>
+<p>Le cookie <code>session</code> est un <strong>JWT</strong> : trois segments encodés en base64url séparés par des points (<code>en-tête.payload.signature</code>). Collé dans le <em>Decoder</em> de Burp (ou sur jwt.io), le payload se lit <strong>en clair</strong> :</p>
+<pre><code>{ "uid": 1, "username": "...", "is_admin": false }</code></pre>
+<p>Autrement dit, « cookie » ne veut pas dire « opaque » ni « chiffré » : ici le contenu est seulement signé (HS256). Seule la <strong>signature</strong> empêche de modifier le payload, et elle ne vaut que ce que vaut le secret qui la produit.</p>
+<p>C'est le point de départ du TP2 : ce secret de signature est faible et présent dans le dépôt, donc forgeable. Au TP1, il suffit de comprendre que le cookie transporte une identité lisible.</p>
+</div></details>
 </div>
 
 <div class="step">
@@ -186,6 +230,16 @@ observez les étapes : <code>Install → Lint → Tests → Build</code>.</p>
   <strong>Question 3.</strong> La pipeline est-elle verte ? Que vérifie-t-elle <em>réellement</em> aujourd'hui en
   matière de sécurité ? (Indice : rien. C'est le point de départ.)
 </div>
+<details class="solution"><summary>Correction 3</summary><div class="solution-body">
+<h4>Verte, mais aveugle à la sécurité</h4>
+<p>La pipeline est au vert. Son workflow actuel enchaîne <code>install → lint → test → build</code>, mais :</p>
+<ul class="clean">
+<li>le <strong>lint</strong> est lancé en <code>|| true</code> : il n'échoue jamais, quoi qu'il trouve ;</li>
+<li>le seul <strong>test</strong> est un <em>smoke test</em> (l'appli démarre sans planter) ;</li>
+<li>aucun contrôle de sécurité : ni secrets, ni SAST, ni dépendances, ni DAST.</li>
+</ul>
+<p><strong>Le message à retenir :</strong> une CI verte ne dit rien sur la sécurité tant qu'on n'y a pas ajouté de contrôle de sécurité. C'est tout le fil rouge des 7 TP suivants : rendre cette pipeline capable de bloquer du code vulnérable.</p>
+</div></details>
 </div>
 
 <h2>Ce que vous devez rendre</h2>

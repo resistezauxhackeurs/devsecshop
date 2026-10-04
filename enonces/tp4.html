@@ -19,6 +19,22 @@ pre code{background:none;padding:0;color:inherit}
 .partA{border-top:3px solid var(--red)}.partB{border-top:3px solid var(--ok)}
 .livrable{background:#fff7e6;border:1px solid #ffe2a8;border-radius:8px;padding:14px 18px;margin-top:12px}
 ul.clean{padding-left:20px}footer.doc{text-align:center;color:#8a8f98;font-size:13px;margin-top:50px}
+/* Corrections repliables (masquées par défaut) */
+details.solution{background:#fff;border:1px solid #cfe8d8;border-left:4px solid var(--ok);border-radius:8px;margin:10px 0 18px}
+details.solution>summary{cursor:pointer;padding:10px 16px;font-weight:700;color:var(--ok);list-style:none;user-select:none}
+details.solution>summary::-webkit-details-marker{display:none}
+details.solution>summary::before{content:"\25B6";display:inline-block;margin-right:.6rem;font-size:.75em;transition:transform .2s}
+details.solution[open]>summary::before{transform:rotate(90deg)}
+details.solution>summary:hover{color:#146c3f}
+.solution-body{padding:4px 18px 16px;border-top:1px solid #e3efe7}
+.solution-body>*:first-child{margin-top:0}
+.solution-body h4{color:var(--accent);margin:14px 0 4px;font-size:14px}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#eef3fb;border:1px solid #d9e4f5;border-radius:8px;padding:8px 14px;margin:18px 0}
+.toolbar span{color:#555;font-size:13px;margin-right:auto}
+.toolbar button{background:#fff;border:1px solid #c7d3e6;color:var(--accent2);padding:5px 12px;border-radius:6px;cursor:pointer;font:inherit;font-size:13px}
+.toolbar button:hover{border-color:var(--ok);color:var(--ok)}
+.theorie{border-left:4px solid #6b4fbb;background:#f1edfb;padding:12px 16px;border-radius:6px;margin:14px 0}
+.theorie h4{color:#4b3a86;margin:12px 0 4px;font-size:14px}.theorie>*:first-child{margin-top:0}
 </style></head>
 <body>
 <header class="doc"><div class="wrap" style="padding:0">
@@ -40,10 +56,16 @@ ul.clean{padding-left:20px}footer.doc{text-align:center;color:#8a8f98;font-size:
 <ul class="clean">
 <li><strong>Récupérer :</strong> <code>git clone &lt;URL-GitHub&gt; &amp;&amp; cd app_devsecshop</code></li>
 <li><strong>Lancer :</strong> <code>docker compose up --build -d</code> &rarr; http://localhost:3000</li>
-<li><strong>Tester :</strong> <code>./scripts/test.sh</code> (Linux / Git Bash) ou <code>scripts	est.bat</code> (Windows) &mdash; les tests tournent dans Docker.</li>
+<li><strong>Tester :</strong> <code>./scripts/test.sh</code> (Linux / Git Bash) ou <code>scripts\test.bat</code> (Windows) &mdash; les tests tournent dans Docker.</li>
 <li><strong>Corriger puis comparer :</strong> écris ton correctif, relance les tests, puis compare au corrigé de référence : <code>git diff main origin/solution/tp4</code> ou <code>git checkout solution/tp4</code>.</li>
 </ul>
 Dans cet énoncé, « versions fournies » et <code>npm test</code> renvoient à ce flux (le correctif de référence est la branche <code>solution/tp4</code>).</div>
+
+<div class="toolbar">
+  <span>Les corrections sont masquées. Cherche d'abord, puis déplie.</span>
+  <button onclick="document.querySelectorAll('details.solution').forEach(d=>d.open=true)">Tout afficher</button>
+  <button onclick="document.querySelectorAll('details.solution').forEach(d=>d.open=false)">Tout masquer</button>
+</div>
 
 <h2 class="partA">Partie A — Comprendre &amp; exploiter</h2>
 <p>Ces fonctions sont dans le back-office. Connectez-vous en admin (SQLi du TP3 : <code>admin'-- -</code>) avant d'attaquer.</p>
@@ -57,6 +79,16 @@ GET /admin/import-image?url=http://127.0.0.1:5678/
 GET /admin/import-image?url=http://169.254.169.254/latest/meta-data/</code></pre>
 <p>La réponse renvoie le contenu du service interne : vous avez fait parler le serveur à sa place.</p>
 <div class="livrable"><strong>Question 1.</strong> Quelle donnée interne avez-vous récupérée ? En quoi la SSRF est-elle dangereuse en environnement cloud ?</div>
+<details class="solution"><summary>Correction 1</summary><div class="solution-body">
+<h4>Donnée récupérée</h4>
+<p>En visant <code>http://internal-metadata:5678/</code>, le service interne du lab renvoie son secret, du type <code>SECRET-INTERNAL-TOKEN=...</code>. Ce service n'est joignable que depuis le réseau Docker : c'est bien le <em>serveur</em> qui est allé le lire, pas vous.</p>
+<h4>Pourquoi c'est critique en cloud</h4>
+<ul class="clean">
+<li>La SSRF transforme le serveur en <strong>relais</strong> vers tout ce qu'il peut joindre : back-ends, bases, services internes non exposés.</li>
+<li>En cloud, l'URL <code>http://169.254.169.254/latest/meta-data/</code> expose les <strong>credentials IAM temporaires</strong> de l'instance → prise de contrôle potentielle du compte cloud.</li>
+<li>C'est aussi un point de <strong>pivot</strong> : depuis l'extérieur, l'attaquant atteint des cibles internes normalement inaccessibles.</li>
+</ul>
+</div></details>
 
 <h3>A.2 — XXE via l'import de catalogue</h3>
 <p>L'import de catalogue parse du XML avec les entités externes activées. On déclare une entité qui lit un fichier :</p>
@@ -67,14 +99,38 @@ GET /admin/import-image?url=http://169.254.169.254/latest/meta-data/</code></pre
 &lt;catalog&gt;&lt;product&gt;&lt;name&gt;&amp;xxe;&lt;/name&gt;&lt;/product&gt;&lt;/catalog&gt;</code></pre>
 <p>Le nom de produit renvoyé contient le contenu de <code>/etc/passwd</code>. On peut aussi viser une URL interne (XXE → SSRF).</p>
 <div class="livrable"><strong>Question 2.</strong> Montrez la fuite de fichier. Quelle option du parseur rend l'attaque possible ?</div>
+<details class="solution"><summary>Correction 2</summary><div class="solution-body">
+<h4>La fuite</h4>
+<p>Le nom de produit renvoyé dans la réponse contient le contenu de <code>/etc/passwd</code> : l'entité externe <code>&amp;xxe;</code> a été résolue et substituée dans le document.</p>
+<h4>L'option fautive</h4>
+<p>Le XML est parsé avec la <strong>substitution d'entités activée</strong> (<code>noent: true</code>) et le <strong>chargement de DTD externe</strong> (<code>dtdload: true</code>). C'est ce couple qui autorise <code>&lt;!ENTITY xxe SYSTEM "file:///etc/passwd"&gt;</code> à lire un fichier du serveur. Note : le nom <code>noent</code> est trompeur, car mis à <code>true</code> il <em>active</em> la résolution des entités.</p>
+<p>La même technique peut viser une URL interne (<code>file://</code> → <code>http://</code>), transformant la XXE en SSRF.</p>
+</div></details>
 
 <h3>A.3 — Dépendances vulnérables</h3>
 <pre><code>npm audit                 # liste les vulns des dépendances
 npm audit --audit-level=high</code></pre>
 <p>Repérez au moins <code>lodash</code> (critical) et <code>js-yaml</code> (high). Notez les CVE : elles reviendront aux TP5/6.</p>
 <div class="livrable"><strong>Question 3.</strong> Citez deux dépendances vulnérables et le type de faille associé.</div>
+<details class="solution"><summary>Correction 3</summary><div class="solution-body">
+<h4>Dépendances vulnérables</h4>
+<ul class="clean">
+<li><code>lodash 4.17.4</code> : <strong>prototype pollution</strong> / injection de commande (critical).</li>
+<li><code>js-yaml 3.13.1</code> : <strong>prototype pollution</strong> / déni de service (high).</li>
+</ul>
+<p>Complètent le tableau : <code>node-serialize</code> et <code>libxmljs</code>. Ces CVE reviennent aux TP5 (<code>node-serialize</code>) et TP6 (<code>js-yaml</code>), où l'on traite la faille applicative correspondante : c'est pourquoi certaines versions ne seront bumpées qu'à ce moment-là.</p>
+</div></details>
 
 <h2 class="partB">Partie B — Détecter &amp; corriger en CI/CD</h2>
+
+<div class="note"><strong>🛠️ Comment appliquer une correction (pas à pas)</strong>
+<p>Tu modifies le code <strong>sur ta machine</strong> (le dépôt cloné), avec ton éditeur — <strong>jamais à l'intérieur du conteneur</strong>.</p>
+<ol>
+<li>Édite le fichier chez toi.</li>
+<li>Reconstruis + relance (le <code>Dockerfile</code> COPIE le code, donc <code>--build</code>) : <pre><code>docker compose up --build -d</code></pre></li>
+<li>Vérifie : rejoue l'attaque (doit échouer) ou lance <code>./scripts/test.sh</code> (Windows : <code>scripts\test.bat</code>).</li>
+<li>Besoin d'aide : <code>git diff main origin/solution/tp4</code>.</li>
+</ol></div>
 
 <h3>B.1 — SCA : composition logicielle</h3>
 <p>Ajoutez <code>.github/workflows/04-sca-dast.yml</code> (jobs <em>sca</em> + <em>dast</em>) et <code>.github/dependabot.yml</code>. Le job <em>sca</em> fait échouer le build si une vuln <code>high</code>+ est présente (npm audit + OSV-Scanner). Dependabot ouvrira des PR de mise à jour automatiques.</p>
@@ -84,11 +140,89 @@ npm audit --audit-level=high</code></pre>
 <div class="note">DAST = on attaque l'appli qui tourne ; SCA = on inspecte les dépendances ; SAST (TP3) = on lit le code. Trois angles, trois familles de failles. Aucun ne suffit seul.</div>
 
 <h3>B.3 — Corriger</h3>
-<ul class="clean">
-<li><strong>SSRF</strong> : remplacez <code>src/routes/admin.js</code> par la version fournie. Elle valide le schéma (http/https), résout l'hôte et <strong>refuse toute IP privée/loopback/link-local</strong>, et ne suit pas les redirections.</li>
-<li><strong>XXE</strong> : même fichier — le XML est parsé sans substitution d'entités, sans DTD externe, sans réseau (<code>noent:false, dtdload:false, nonet:true</code>).</li>
-<li><strong>Dépendances</strong> : appliquez les PR Dependabot / <code>npm audit fix</code> au fil des TP (certaines versions ne seront bumpées qu'aux TP5/6 où on traite la faille correspondante).</li>
-</ul>
+<p>Les deux corrections de code sont dans <code>src/routes/admin.js</code>.</p>
+
+<div class="theorie"><strong>💡 Théorie &amp; méthode — SSRF</strong>
+<p>On ne peut pas faire confiance à une URL fournie par l'utilisateur. Le principe : <strong>allowlist</strong> plutôt que blocklist de chaînes. On valide le <strong>schéma</strong> (http/https seulement, ce qui bloque <code>file:</code>, <code>gopher:</code>…), on <strong>résout l'hôte</strong> en IP et on <strong>refuse toute IP privée, loopback ou link-local</strong> (dont <code>169.254.169.254</code>), et on <strong>ne suit pas les redirections</strong> (une 3xx vers une IP interne serait un contournement).</p>
+<p><strong>Fonctions / outils à utiliser :</strong> <code>new URL()</code> (schéma + hostname), <code>dns.lookup(host, {all:true})</code> (résolution), un test d'IP interne maison, <code>http.get</code> sans suivi de redirection.</p>
+</div>
+
+<div class="livrable"><strong>À toi (SSRF).</strong> Écris le correctif puis vérifie (édite → <code>docker compose up --build -d</code> → <code>./scripts/test.sh</code>). Si tu bloques, déplie la correction.</div>
+
+<details class="solution"><summary>Voir la correction (code) — SSRF</summary><div class="solution-body">
+<pre><code>// ❌ AVANT — le serveur va chercher N'IMPORTE QUELLE URL
+router.get('/import-image', requireAdmin, (req, res) =&gt; {
+  http.get(req.query.url, (r) =&gt; { /* renvoie le contenu */ });
+});
+
+// ✅ APRÈS — schéma validé, hôte résolu, IP interne refusée, pas de redirection
+const dns = require('dns').promises;
+const net = require('net');
+
+function isBlockedIp(ip) {           // privée / loopback / link-local / réservée
+  if (net.isIPv4(ip)) {
+    const [a, b] = ip.split('.').map(Number);
+    if (a === 10 || a === 127 || a === 0) return true;
+    if (a === 169 &amp;&amp; b === 254) return true;          // métadonnées cloud
+    if (a === 172 &amp;&amp; b &gt;= 16 &amp;&amp; b &lt;= 31) return true;
+    if (a === 192 &amp;&amp; b === 168) return true;
+    return false;
+  }
+  return true;                       // IPv6/inconnu : on refuse par défaut
+}
+
+router.get('/import-image', requireAdmin, async (req, res) =&gt; {
+  let parsed;
+  try { parsed = new URL(req.query.url); }
+  catch (e) { return res.status(400).send('URL invalide.'); }
+
+  if (parsed.protocol !== 'http:' &amp;&amp; parsed.protocol !== 'https:')
+    return res.status(400).send('Schéma non autorisé.');
+
+  const records = await dns.lookup(parsed.hostname, { all: true });
+  if (records.some((r) =&gt; isBlockedIp(r.address)))
+    return res.status(403).send('Destination interne interdite.');
+
+  // ... http.get SANS suivre les 3xx (une 3xx -&gt; 400 « Redirection refusée »)
+});</code></pre>
+<p class="meta">Corrigé complet de référence : <code>git checkout solution/tp4</code>. Théorie détaillée : <em>Guide détection &amp; correction</em> §4 (SSRF).</p>
+</div></details>
+
+<div class="theorie"><strong>💡 Théorie &amp; méthode — XXE</strong>
+<p>Une XXE vient du <strong>parseur</strong>, pas du XML. La parade : parser <strong>sans résoudre les entités</strong>, <strong>sans charger de DTD externe</strong> et <strong>sans accès réseau</strong>. Les données d'entrée restent des données ; aucune entité <code>SYSTEM</code> ne peut lire un fichier ni appeler une URL.</p>
+<p><strong>Fonctions / outils à utiliser :</strong> les options du parseur <code>libxmljs2</code> — <code>noent:false</code> (pas de substitution d'entités), <code>dtdload:false</code> (pas de DTD externe), <code>nonet:true</code> (pas de réseau).</p>
+</div>
+
+<div class="livrable"><strong>À toi (XXE).</strong> Corrige les options du parseur puis vérifie (<code>./scripts/test.sh</code> : plus aucune fuite de <code>/etc/passwd</code>, l'import XML légitime marche toujours). Si tu bloques, déplie la correction.</div>
+
+<details class="solution"><summary>Voir la correction (code) — XXE</summary><div class="solution-body">
+<pre><code>const libxml = require('libxmljs2');
+
+// ❌ AVANT — entités externes activées (XXE possible)
+const doc = libxml.parseXml(xml, { noent: true, dtdload: true });
+
+// ✅ APRÈS — pas de substitution d'entités, pas de DTD externe, pas de réseau
+const doc = libxml.parseXml(xml, { noent: false, dtdload: false, nonet: true });</code></pre>
+<p class="meta">Corrigé complet de référence : <code>git checkout solution/tp4</code>. Théorie détaillée : <em>Guide détection &amp; correction</em> §5 (XXE).</p>
+</div></details>
+
+<div class="theorie"><strong>💡 Théorie &amp; méthode — Dépendances</strong>
+<p>Une faille peut venir d'une <strong>dépendance</strong>, pas de ton code. On maintient les versions à jour en continu : <code>npm audit</code> en CI (échec sur <code>high</code>+) et Dependabot qui ouvre des PR de bump automatiques. Certaines versions ne sont bumpées qu'aux TP5/6, où l'on traite la faille applicative correspondante.</p>
+<p><strong>Fonctions / outils à utiliser :</strong> <code>npm audit</code>, <code>npm audit fix</code>, Dependabot.</p>
+</div>
+
+<div class="livrable"><strong>À toi (dépendances).</strong> Applique les mises à jour sûres puis relance l'audit. Si tu bloques, déplie la correction.</div>
+
+<details class="solution"><summary>Voir la correction (commandes) — Dépendances</summary><div class="solution-body">
+<pre><code># corrige les vulns sans casser les versions majeures
+npm audit fix
+
+# en dernier recours (⚠️ peut monter des versions majeures) :
+npm audit fix --force
+
+# puis fusionne les PR Dependabot au fil des TP5/6</code></pre>
+<p class="meta">Corrigé complet de référence : <code>git checkout solution/tp4</code>. Théorie détaillée : <em>Guide détection &amp; correction</em> §6 (Dépendances).</p>
+</div></details>
 
 <h3>B.4 — Vérifier</h3>
 <pre><code>npm test     # tests/ssrf.test.js et tests/xxe.test.js doivent passer</code></pre>

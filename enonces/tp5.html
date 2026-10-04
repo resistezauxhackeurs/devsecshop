@@ -16,7 +16,24 @@ pre{background:var(--code-bg);color:#e6e6e6;padding:14px 16px;border-radius:8px;
 .warn{border-left:4px solid var(--red);background:#fdecef;padding:12px 16px;border-radius:6px;margin:16px 0}
 .partA{border-top:3px solid var(--red)}.partB{border-top:3px solid var(--ok)}
 .livrable{background:#fff7e6;border:1px solid #ffe2a8;border-radius:8px;padding:14px 18px;margin-top:12px}
-ul.clean{padding-left:20px}footer.doc{text-align:center;color:#8a8f98;font-size:13px;margin-top:50px}</style></head>
+ul.clean{padding-left:20px}footer.doc{text-align:center;color:#8a8f98;font-size:13px;margin-top:50px}
+/* Corrections repliables (masquées par défaut) */
+details.solution{background:#fff;border:1px solid #cfe8d8;border-left:4px solid var(--ok);border-radius:8px;margin:10px 0 18px}
+details.solution>summary{cursor:pointer;padding:10px 16px;font-weight:700;color:var(--ok);list-style:none;user-select:none}
+details.solution>summary::-webkit-details-marker{display:none}
+details.solution>summary::before{content:"\25B6";display:inline-block;margin-right:.6rem;font-size:.75em;transition:transform .2s}
+details.solution[open]>summary::before{transform:rotate(90deg)}
+details.solution>summary:hover{color:#146c3f}
+.solution-body{padding:4px 18px 16px;border-top:1px solid #e3efe7}
+.solution-body>*:first-child{margin-top:0}
+.solution-body h4{color:var(--accent);margin:14px 0 4px;font-size:14px}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#eef3fb;border:1px solid #d9e4f5;border-radius:8px;padding:8px 14px;margin:18px 0}
+.toolbar span{color:#555;font-size:13px;margin-right:auto}
+.toolbar button{background:#fff;border:1px solid #c7d3e6;color:var(--accent2);padding:5px 12px;border-radius:6px;cursor:pointer;font:inherit;font-size:13px}
+.toolbar button:hover{border-color:var(--ok);color:var(--ok)}
+.theorie{border-left:4px solid #6b4fbb;background:#f1edfb;padding:12px 16px;border-radius:6px;margin:14px 0}
+.theorie h4{color:#4b3a86;margin:12px 0 4px;font-size:14px}.theorie>*:first-child{margin-top:0}
+</style></head>
 <body><header class="doc"><div class="wrap" style="padding:0">
 <span class="badge">TP 5 / 8 — NIVEAU 2</span>
 <h1>📦 Désérialisation non fiable → RCE</h1>
@@ -37,10 +54,16 @@ ul.clean{padding-left:20px}footer.doc{text-align:center;color:#8a8f98;font-size:
 <ul class="clean">
 <li><strong>Récupérer :</strong> <code>git clone &lt;URL-GitHub&gt; &amp;&amp; cd app_devsecshop</code></li>
 <li><strong>Lancer :</strong> <code>docker compose up --build -d</code> &rarr; http://localhost:3000</li>
-<li><strong>Tester :</strong> <code>./scripts/test.sh</code> (Linux / Git Bash) ou <code>scripts	est.bat</code> (Windows) &mdash; les tests tournent dans Docker.</li>
+<li><strong>Tester :</strong> <code>./scripts/test.sh</code> (Linux / Git Bash) ou <code>scripts\test.bat</code> (Windows) &mdash; les tests tournent dans Docker.</li>
 <li><strong>Corriger puis comparer :</strong> écris ton correctif, relance les tests, puis compare au corrigé de référence : <code>git diff main origin/solution/tp5</code> ou <code>git checkout solution/tp5</code>.</li>
 </ul>
 Dans cet énoncé, « versions fournies » et <code>npm test</code> renvoient à ce flux (le correctif de référence est la branche <code>solution/tp5</code>).</div>
+
+<div class="toolbar">
+  <span>Les corrections sont masquées. Cherche d'abord, puis déplie.</span>
+  <button onclick="document.querySelectorAll('details.solution').forEach(d=>d.open=true)">Tout afficher</button>
+  <button onclick="document.querySelectorAll('details.solution').forEach(d=>d.open=false)">Tout masquer</button>
+</div>
 
 <h2 class="partA">Partie A — Comprendre &amp; exploiter</h2>
 <h3>A.1 — Le cookie de préférences</h3>
@@ -57,8 +80,25 @@ console.log(Buffer.from(s.serialize(p)).toString("base64"));
 <p>Dans Burp, remplacez le cookie <code>prefs</code> par cette valeur et rejouez <code>GET /account/prefs</code>. Le serveur exécute votre commande (<code>/tmp/pwned.txt</code> est créé).</p>
 <div class="warn">C'est une <strong>RCE complète</strong>. Un simple cookie = exécution de commandes sur le serveur. Et aucun scanner dynamique ne la détecte sans connaître le format maison.</div>
 <div class="livrable"><strong>Question 1.</strong> Preuve d'exécution (contenu de <code>/tmp/pwned.txt</code>). Pourquoi JSON.parse ne permettrait-il jamais ça ?</div>
+<details class="solution"><summary>Correction 1</summary><div class="solution-body">
+<h4>Preuve d'exécution</h4>
+<p>Après avoir rejoué <code>GET /account/prefs</code> avec le cookie piégé, le fichier <code>/tmp/pwned.txt</code> contient la sortie de la commande <code>id</code> (uid/gid du process serveur). La commande a donc bien été exécutée côté serveur : c'est une RCE complète déclenchée par un simple cookie.</p>
+<h4>Pourquoi JSON.parse ne permettrait jamais ça</h4>
+<p><code>JSON.parse</code> ne sait produire que des <strong>données</strong> : objets, tableaux, chaînes, nombres, booléens et <code>null</code>. Aucune syntaxe JSON ne représente une fonction, donc rien n'est jamais exécuté à la lecture.</p>
+<p><code>node-serialize</code>, lui, utilise un format maison qui sait <strong>rematérialiser des fonctions</strong> : toute valeur marquée <code>_$$ND_FUNC$$_</code> est reconstruite (via <code>eval</code>), et si elle est suivie de <code>()</code> (IIFE) elle est <strong>appelée immédiatement</strong> pendant la désérialisation. La donnée du cookie devient alors du code exécuté.</p>
+</div></details>
 
 <h2 class="partB">Partie B — Détecter &amp; corriger en CI/CD</h2>
+
+<div class="note"><strong>🛠️ Comment appliquer une correction (pas à pas)</strong>
+<p>Tu modifies le code <strong>sur ta machine</strong> (le dépôt cloné) — <strong>jamais dans le conteneur</strong>.</p>
+<ol>
+<li>Édite le fichier chez toi.</li>
+<li>Reconstruis + relance (le Dockerfile COPIE le code → <code>--build</code>) : <pre><code>docker compose up --build -d</code></pre></li>
+<li>Vérifie : rejoue l'attaque (doit échouer) ou <code>./scripts/test.sh</code> (Windows : <code>scripts\test.bat</code>).</li>
+<li>Aide : <code>git diff main origin/solution/tp5</code>.</li>
+</ol></div>
+
 <h3>B.1 — SAST ciblé</h3>
 <p>Ajoutez <code>semgrep-rules/insecure-deserialization.yml</code> et <code>.github/workflows/05-sast-deser.yml</code>. La règle repère <code>require('node-serialize')</code> et tout <code>.unserialize(...)</code>. Le build échoue tant que le code dangereux est là.</p>
 <h3>B.2 — SCA confirme</h3>
@@ -67,6 +107,27 @@ console.log(Buffer.from(s.serialize(p)).toString("base64"));
 <p>Remplacez <code>src/routes/account.js</code> par la version fournie : les préférences passent en <strong>JSON</strong> (<code>JSON.stringify</code> / <code>JSON.parse</code>), qui ne construit que des données. Retirez la dépendance :</p>
 <pre><code>npm uninstall node-serialize   # (déjà retiré du package.json fourni)</code></pre>
 <div class="note">Règle générale : ne jamais désérialiser de données venant du client avec un format capable d'instancier des objets/fonctions. JSON pour les données ; si vous devez transporter des objets riches, signez-les (HMAC) et validez le schéma.</div>
+
+<div class="theorie"><strong>💡 Théorie &amp; méthode</strong>
+<p>La parade n'est pas de « filtrer » le cookie mais de <strong>changer de format</strong>. On ne désérialise jamais des données venant du client avec un format capable d'instancier des objets ou des fonctions. JSON ne transporte que de la donnée : il ne peut rien exécuter. Si vous devez transporter des objets riches, signez-les (HMAC) et validez le schéma à la lecture.</p>
+<p><strong>Fonction / outil à utiliser :</strong> <code>JSON.stringify</code> à l'écriture, <code>JSON.parse</code> à la lecture ; suppression de la dépendance <code>node-serialize</code>.</p>
+</div>
+<div class="livrable"><strong>À toi.</strong> Écris le correctif puis vérifie (édite → <code>docker compose up --build -d</code> → <code>./scripts/test.sh</code>). Si tu bloques, déplie.</div>
+<details class="solution"><summary>Voir la correction (code)</summary><div class="solution-body">
+<pre><code>// ❌ AVANT — node-serialize désérialise (et exécute) le cookie
+const serialize = require('node-serialize');
+const prefs = serialize.unserialize(Buffer.from(raw, 'base64').toString('utf8'));
+
+// ✅ APRÈS — JSON pur, aucune exécution possible
+// écriture :
+const encoded = Buffer.from(JSON.stringify(prefs)).toString('base64');
+// lecture :
+const prefs = JSON.parse(Buffer.from(raw, 'base64').toString('utf8'));
+// ne renvoyer que des champs connus (défense en profondeur) :
+res.json({ theme: String(prefs.theme || 'light'), lang: String(prefs.lang || 'fr') });</code></pre>
+<p class="meta">Corrigé complet : <code>git checkout solution/tp5</code>.</p>
+</div></details>
+
 <h3>B.4 — Vérifier</h3>
 <pre><code>npm test    # tests/deserialization.test.js</code></pre>
 <p>Le cookie piégé devient inerte (aucune exécution), les préférences JSON légitimes fonctionnent, Semgrep repasse au vert.</p>
