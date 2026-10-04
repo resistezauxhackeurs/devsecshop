@@ -1,0 +1,19 @@
+# devsecshop/.gitleaks.toml
+# Étend les règles par défaut de gitleaks avec une règle maison.
+[extend]
+useDefault = true
+
+[[rules]]
+id = "devsecshop-stripe-like"
+description = "Clé secrète type Stripe (sk_lab_...)"
+regex = '''sk_lab_[0-9a-zA-Z]{24,}'''
+tags = ["payment", "secret"]
+
+[[rules]]
+id = "devsecshop-plaintext-password"
+description = "Mot de passe en clair (DB_PASSWORD / PASSWORD = ...) dans le dépôt"
+# Valeur d'au moins 6 caractères : les gabarits vides (.env.example) ne matchent pas.
+regex = '''(?i)(db_password|db_pass|password|passwd|pwd)\s*[:=]\s*["']?[^\s"']{6,}'''
+tags = ["password", "secret"]
+
+# Pas d'allowlist : on VEUT que les secrets plantés soient détectés.

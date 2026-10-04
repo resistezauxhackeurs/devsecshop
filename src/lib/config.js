@@ -1,26 +1,26 @@
 // devsecshop/src/lib/config.js
-// Centralise la configuration de l'appli.
+// Configuration de l'appli — VERSION CORRIGÉE (TP2).
 //
-// ⚠️ VULN (TP2 - Secrets) : une clé API de paiement est codée EN DUR ci-dessous,
-// et le secret JWT a une valeur par défaut faible. En conditions réelles, ces
-// valeurs doivent venir de variables d'environnement injectées au déploiement
-// (jamais du code source, jamais du dépôt git).
+// Plus aucun secret en dur. Les secrets viennent exclusivement de
+// l'environnement (injecté au déploiement par un gestionnaire de secrets).
+// En l'absence de JWT_SECRET, on génère un secret éphémère aléatoire au
+// démarrage : l'appli tourne en dev, mais aucune valeur secrète n'est écrite
+// dans le code ni dans le dépôt. En production, JWT_SECRET DOIT être fourni.
 
 'use strict';
+
+const crypto = require('crypto');
 
 module.exports = {
   port: process.env.PORT || 3000,
 
-  // ⚠️ Secret codé en dur — c'est exactement ce que gitleaks doit détecter (TP2).
-  // Ressemble à une clé secrète Stripe de test pour être attrapée par les règles de détection.
-  paymentApiKey: 'REDACTED_KEY',
+  // Clé de paiement : uniquement depuis l'environnement, pas de valeur par défaut.
+  paymentApiKey: process.env.STRIPE_SECRET_KEY || null,
 
-  // ⚠️ Secret JWT faible + valeur par défaut présente dans le code.
-  jwtSecret: process.env.JWT_SECRET || 'devsecshop-super-secret-2023',
+  // Secret JWT : env en priorité ; sinon secret aléatoire éphémère (dev only).
+  jwtSecret: process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex'),
 
-  // Base de données SQLite (fichier local).
   dbFile: process.env.DB_FILE || '/tmp/devsecshop.db',
 
-  // Active/désactive le mode debug (laisse fuiter des stacktraces en prod si à true).
-  debug: process.env.DEBUG === 'true' || true
+  debug: process.env.DEBUG === 'true'
 };
