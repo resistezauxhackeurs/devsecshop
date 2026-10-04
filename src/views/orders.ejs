@@ -1,0 +1,10 @@
+<%- include('partials/header') %>
+<!-- devsecshop/src/views/orders.ejs -->
+<h1>Mes commandes</h1>
+<% orders.forEach(o => { %>
+  <div class="card">
+    <a href="/account/orders/<%= o.id %>">Commande n°<%= o.id %></a>
+    — <%= (o.total_cents/100).toFixed(2) %> € — <%= o.created_at %>
+  </div>
+<% }) %>
+<%- include('partials/footer') %>

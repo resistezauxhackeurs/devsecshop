@@ -1,0 +1,30 @@
+# devsecshop/docker-compose.yml
+# Lance DevSecShop en local pour le lab.
+#   docker compose up --build
+# L'appli écoute sur http://localhost:3000
+
+services:
+  app:
+    build: .
+    container_name: devsecshop
+    ports:
+      # Lié à la loopback uniquement (règle projet) : le lab n'est joignable que
+      # depuis la machine hôte, pas exposé sur le réseau.
+      - "127.0.0.1:3000:3000"
+    environment:
+      - PORT=3000
+      # Les secrets sont volontairement laissés en valeurs faibles / par défaut.
+      - JWT_SECRET=devsecshop-super-secret-2023
+      - DB_FILE=/tmp/devsecshop.db
+    # Un conteneur cible interne pour les TP SSRF (sert de "service interne"
+    # que l'étudiant ne devrait pas pouvoir atteindre depuis l'appli).
+    depends_on:
+      - internal
+
+  # Faux service interne (métadonnées / admin) : cible de la SSRF (TP4).
+  internal:
+    image: hashicorp/http-echo
+    container_name: internal-metadata
+    command: ["-text=SECRET-INTERNAL-TOKEN=aws-fake-metadata-9f3b2c"]
+    expose:
+      - "5678"   # accessible seulement depuis le réseau docker, pas publié

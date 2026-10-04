@@ -1,0 +1,9 @@
+<%- include('partials/header') %>
+<!-- devsecshop/src/views/order-detail.ejs -->
+<div class="card">
+  <h1>Commande n°<%= order.id %></h1>
+  <p>Client (user_id) : <%= order.user_id %></p>
+  <p class="price">Total : <%= (order.total_cents/100).toFixed(2) %> €</p>
+  <pre><%= order.items_json %></pre>
+</div>
+<%- include('partials/footer') %>

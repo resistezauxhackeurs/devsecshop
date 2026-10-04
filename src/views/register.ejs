@@ -1,0 +1,13 @@
+<%- include('partials/header') %>
+<!-- devsecshop/src/views/register.ejs -->
+<h1>Inscription</h1>
+<div class="card" style="max-width:380px">
+  <% if (error) { %><p class="err"><%= error %></p><% } %>
+  <form method="post" action="/register">
+    <label>Nom d'utilisateur</label><input name="username">
+    <label>Email</label><input name="email">
+    <label>Mot de passe</label><input name="password" type="password">
+    <p><button type="submit">Créer mon compte</button></p>
+  </form>
+</div>
+<%- include('partials/footer') %>

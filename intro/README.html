@@ -1,0 +1,84 @@
+<!-- app_intro-compromission/README.html -->
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab intro - Comment une application se fait-elle compromettre ?</title>
+<meta name="description" content="Lab d'introduction volontairement vulnerable (PHP/Apache) : SQLi -> admin -> webshell -> RCE. Demarrage Docker, Windows et Linux.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Lab intro - Comment une application se fait-elle compromettre ?">
+<meta property="og:description" content="Appli PHP volontairement vulnerable pour l'intro du cours CI/CD DevSecOps. Chaine SQLi -> webshell -> RCE.">
+<meta property="og:site_name" content="Résistez aux hackeurs">
+<meta property="og:locale" content="fr_FR">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%238b1a1a'/><path d='M16 7c3 4 6 6 6 10a6 6 0 0 1-12 0c0-4 3-6 6-10z' fill='%23f0ede9'/></svg>">
+<style>
+  :root{--cuivre:#a85f2e;--ardoise:#232c35;--ardoise-fonce:#1a2129;--clair:#f0ede9;--texte:#2b2b2b;
+    --font-titre:"Space Grotesk","Segoe UI",system-ui,sans-serif;--font-texte:"IBM Plex Sans",-apple-system,system-ui,sans-serif;
+    --font-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;}
+  *{box-sizing:border-box}body{font-family:var(--font-texte);color:var(--texte);background:var(--clair);margin:0;line-height:1.6}
+  .lab-banner{background:#8b1a1a;color:#fff;padding:.7rem 1rem;font:600 14px/1.4 system-ui;text-align:center}
+  header.doc{background:linear-gradient(135deg,var(--ardoise-fonce),var(--ardoise));color:#fff;padding:34px 20px}
+  .wrap{max-width:820px;margin:0 auto}
+  header.doc h1{font-family:var(--font-titre);margin:.2em 0;font-size:25px}
+  .tagline{color:#c47c46;font-weight:600;text-transform:uppercase;font-size:13px;letter-spacing:.04em}
+  main{max-width:820px;margin:0 auto;padding:24px 20px 70px}
+  h2{font-family:var(--font-titre);color:var(--ardoise);border-bottom:2px solid #dcd7d0;padding-bottom:6px;margin-top:32px}
+  code{font-family:var(--font-mono);font-size:13px;background:#ece7e1;padding:1px 6px;border-radius:4px}
+  pre{background:var(--ardoise-fonce);color:#e6e6e6;padding:13px 15px;border-radius:8px;overflow-x:auto;font-size:13px;line-height:1.5}
+  pre code{background:none;padding:0;color:inherit}
+  .warn{border-left:4px solid #8b1a1a;background:#fdecef;padding:12px 16px;border-radius:6px;margin:16px 0;font-size:14px}
+  ol li,ul li{margin:4px 0}
+  a{color:var(--cuivre)}
+  @media (prefers-color-scheme:dark){body{background:#15191e;color:#d7dae0}h2{color:#c47c46;border-color:#2b333c}code{background:#2b333c;color:#e6e6e6}.warn{background:#2a1416;color:#f3c7cd}}
+</style>
+</head>
+<body>
+<div class="lab-banner">Application volontairement vulnérable - usage pédagogique en environnement isolé. Ne jamais déployer sur un réseau accessible.</div>
+<header class="doc"><div class="wrap">
+  <p class="tagline">Résistez aux hackeurs · CI/CD &amp; DevSecOps</p>
+  <h1>Lab intro - Comment une application se fait-elle compromettre ?</h1>
+</div></header>
+<main>
+
+  <div class="warn">
+    <strong>Lab volontairement vulnérable (PHP/Apache).</strong> Il contient une injection SQL, un stockage de
+    mots de passe en clair, un upload non restreint et une RCE, <em>par conception</em>. À lancer en local,
+    réseau isolé, jamais exposé sur internet. Données et identifiants factices (<code>corp.lab</code>).
+  </div>
+
+  <h2>À quoi ça sert</h2>
+  <p>L'introduction du cours. Avant de parler défense et CI/CD, l'étudiant <strong>voit</strong> une compromission
+     de bout en bout : d'un champ de login jusqu'à l'exécution de commandes sur le serveur. Chaîne :</p>
+  <p style="text-align:center"><strong>SQL injection → récupération du compte admin → upload d'un webshell (contournement de filtre) → RCE</strong></p>
+
+  <h2>Démarrer</h2>
+  <p><strong>Linux / macOS / Git Bash</strong></p>
+  <pre><code>docker compose -f docker-compose.local.yml up -d --build
+# -> http://localhost:8080
+./reset.sh      # remettre a zero (efface le webshell depose)</code></pre>
+  <p><strong>Windows (cmd.exe)</strong></p>
+  <pre><code>docker compose -f docker-compose.local.yml up -d --build
+reset.bat</code></pre>
+  <p>Prérequis : Docker Desktop. Rien d'autre (PHP tourne dans le conteneur).</p>
+
+  <h2>Contenu</h2>
+  <ul>
+    <li><code>cible/</code> - l'application vulnérable (PHP + Apache).</li>
+    <li><code>enonce/enonce-etudiant.html</code> - le TP guidé pas à pas.</li>
+    <li><code>formateur/corrige.html</code> - le corrigé (déroulé + sorties attendues).</li>
+    <li><code>formateur/failles.md</code> - l'inventaire des failles volontaires.</li>
+    <li><code>reset.sh</code> / <code>reset.bat</code> - remise à zéro.</li>
+  </ul>
+
+  <h2>Comptes de démo (factices)</h2>
+  <ul>
+    <li><code>admin</code> / <code>S3cr3t-Adm1n-2024!</code> (mais on entre sans le connaître, par SQLi)</li>
+    <li><code>marie</code> / <code>printemps</code>, <code>paul</code> / <code>azerty</code></li>
+  </ul>
+
+  <div class="warn">Les techniques de ce lab ne s'appliquent qu'à un système dont on a l'autorisation écrite.</div>
+</main>
+</body>
+</html>

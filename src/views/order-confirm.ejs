@@ -1,0 +1,8 @@
+<%- include('partials/header') %>
+<!-- devsecshop/src/views/order-confirm.ejs -->
+<div class="card">
+  <h1>Commande confirmée ✅</h1>
+  <p>Commande n°<%= orderId %>.</p>
+  <p class="price">Montant débité : <%= (total/100).toFixed(2) %> €</p>
+</div>
+<%- include('partials/footer') %>

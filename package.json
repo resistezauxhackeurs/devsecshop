@@ -1,0 +1,30 @@
+{
+  "_comment": "devsecshop/package.json — manifeste de l'appli vulnerable DevSecShop (lab CI/CD). Versions epinglees volontairement anciennes/vulnerables pour les TP SCA/SAST.",
+  "name": "devsecshop",
+  "version": "1.0.0",
+  "description": "Boutique e-commerce volontairement vulnerable — support de formation CI/CD / DevSecOps.",
+  "main": "src/app.js",
+  "engines": { "node": ">=20 <21" },
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "node src/app.js",
+    "seed": "node -e \"require('./src/lib/db').init(); console.log('Base initialisee.')\"",
+    "lint": "eslint src || true",
+    "test": "npm run seed && node --test --test-force-exit tests/*.test.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "cookie-parser": "^1.4.6",
+    "ejs": "^3.1.10",
+    "express": "^4.19.2",
+    "js-yaml": "3.13.1",
+    "jsonwebtoken": "^9.0.2",
+    "libxmljs2": "0.33.0",
+    "lodash": "4.17.4",
+    "node-serialize": "0.0.4"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0"
+  },
+  "license": "MIT"
+}

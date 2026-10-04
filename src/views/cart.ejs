@@ -1,0 +1,18 @@
+<%- include('partials/header') %>
+<!-- devsecshop/src/views/cart.ejs -->
+<h1>Panier</h1>
+<% if (cart.length === 0) { %><p>Panier vide.</p><% } %>
+<% cart.forEach(l => { %>
+  <div class="card">
+    <strong><%= l.product ? l.product.name : 'Produit #' + l.product_id %></strong>
+    — qté <%= l.qty %> — <%= (l.line_cents/100).toFixed(2) %> €
+  </div>
+<% }) %>
+<div class="card">
+  <p class="price">Total : <%= (total/100).toFixed(2) %> €</p>
+  <form method="post" action="/cart/checkout">
+    <label>Code promo</label><input name="coupon" value="PROMO-2024">
+    <p><button type="submit">Valider la commande</button></p>
+  </form>
+</div>
+<%- include('partials/footer') %>

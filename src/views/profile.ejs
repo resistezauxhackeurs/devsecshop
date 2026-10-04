@@ -1,0 +1,13 @@
+<%- include('partials/header') %>
+<!-- devsecshop/src/views/profile.ejs -->
+<h1>Mon profil</h1>
+<% if (saved) { %><div class="card">Profil mis à jour.</div><% } %>
+<div class="card" style="max-width:420px">
+  <form method="post" action="/account/profile">
+    <label>Nom</label><input value="<%= profile.username %>" disabled>
+    <label>Email</label><input name="email" value="<%= profile.email || '' %>">
+    <p>Admin : <strong><%= profile.is_admin ? 'oui' : 'non' %></strong></p>
+    <p><button type="submit">Enregistrer</button></p>
+  </form>
+</div>
+<%- include('partials/footer') %>

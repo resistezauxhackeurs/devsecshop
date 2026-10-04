@@ -1,0 +1,17 @@
+<%- include('partials/header') %>
+<!-- devsecshop/src/views/search.ejs -->
+<h1>Recherche</h1>
+<form method="get" action="/products/search">
+  <input name="q" value="<%= q %>" placeholder="Rechercher un produit...">
+  <p><button type="submit">Rechercher</button></p>
+</form>
+<% if (error) { %><p class="err">Erreur SQL : <%= error %></p><% } %>
+<div class="grid">
+  <% products.forEach(p => { %>
+    <div class="card">
+      <h3><%= p.name %></h3>
+      <p class="price"><%= (p.price_cents/100).toFixed(2) %> €</p>
+    </div>
+  <% }) %>
+</div>
+<%- include('partials/footer') %>
