@@ -1,20 +1,24 @@
 # devsecshop/Dockerfile
-# Image de l'appli DevSecShop.
-# NB : volontairement non durcie (tourne en root, image complète) — c'est la
-# matière du bonus "sécurité conteneur" du TP capstone (Hadolint/Trivy).
+# Image DURCIE (fix du bonus conteneur, TP8).
+#  - base slim et épinglée
+#  - build des modules natifs isolé dans une étape builder
+#  - exécution en utilisateur non privilégié (pas de root)
 
-FROM node:20
-
+FROM node:20-slim AS builder
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3 make g++ \
+ && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-
-# better-sqlite3 se compile à l'installation ; l'image node:20 complète
-# embarque déjà la toolchain nécessaire.
 COPY package*.json ./
 RUN npm install --omit=dev
 
-COPY . .
-
-ENV PORT=3000
+FROM node:20-slim
+WORKDIR /app
+# Utilisateur non root
+RUN addgroup --system app && adduser --system --ingroup app app
+COPY --from=builder /app/node_modules ./node_modules
+COPY --chown=app:app . .
+USER app
+ENV PORT=3000 NODE_ENV=production
 EXPOSE 3000
-
 CMD ["node", "src/app.js"]

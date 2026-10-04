@@ -1,10 +1,9 @@
 // devsecshop/src/routes/cart.js
-// Panier et validation de commande.
+// Panier — VERSION TP8 (ReDoS + logique métier corrigés).
 //
-// ⚠️ VULN (Niveau 3 - logique métier) : la quantité n'est pas validée. Une
-//    quantité négative produit un total négatif (avoir / remboursement indu).
-// ⚠️ VULN (TP8 - ReDoS) : la validation du code promo utilise une regex à
-//    backtracking catastrophique. Une entrée bien choisie fige l'event loop.
+// FIX ReDoS : la regex de validation du coupon est linéaire et bornée.
+// FIX logique métier : la quantité est validée (entier 1..99) à l'ajout
+//   comme au checkout -> plus de quantité négative ni de total négatif.
 
 'use strict';
 
@@ -13,16 +12,18 @@ const router = express.Router();
 const { db } = require('../lib/db');
 const { requireAuth } = require('../lib/auth');
 
-// Panier stocké en clair dans un cookie JSON (simplifié pour le cours).
 function readCart(req) {
-  try {
-    return JSON.parse(req.cookies.cart || '[]');
-  } catch (e) {
-    return [];
-  }
+  try { return JSON.parse(req.cookies.cart || '[]'); } catch (e) { return []; }
 }
 function writeCart(res, cart) {
   res.cookie('cart', JSON.stringify(cart), { httpOnly: true });
+}
+
+// FIX : borne la quantité à un entier entre 1 et 99.
+function cleanQty(v) {
+  const n = parseInt(v, 10);
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.min(n, 99);
 }
 
 router.get('/', (req, res) => {
@@ -37,38 +38,35 @@ router.get('/', (req, res) => {
 
 router.post('/add', (req, res) => {
   const product_id = parseInt(req.body.product_id, 10);
-
-  // ⚠️ Logique métier : parseInt accepte les négatifs, aucune borne min.
-  const qty = parseInt(req.body.qty, 10) || 1;
-
+  const qty = cleanQty(req.body.qty); // FIX : jamais négatif
+  if (!Number.isFinite(product_id)) return res.status(400).send('Produit invalide.');
   const cart = readCart(req);
   cart.push({ product_id, qty });
   writeCart(res, cart);
   res.redirect('/cart');
 });
 
-// Validation du code promo avant application.
+// FIX ReDoS : regex linéaire, longueur bornée, pas de quantificateur imbriqué.
 function validateCoupon(code) {
-  // ⚠️ ReDoS : quantificateur imbriqué (groupe répété contenant lui-même un +)
-  // -> backtracking exponentiel. Entrée piège : ~35 x 'A' suivies d'un '!'.
-  // Intention (légitime en apparence) : "le code promo doit être alphanumérique".
-  const re = /^([A-Za-z0-9]+)+$/;
-  return re.test(code);
+  if (typeof code !== 'string' || code.length > 32) return false;
+  return /^[A-Za-z0-9-]{3,32}$/.test(code);
 }
 
 router.post('/checkout', requireAuth, (req, res) => {
   const coupon = req.body.coupon || 'PROMO-2024';
-  const validCoupon = validateCoupon(coupon); // peut geler l'appli (ReDoS)
+  const validCoupon = validateCoupon(coupon);
 
   const cart = readCart(req);
   let total = 0;
   const items = cart.map((line) => {
     const p = db.prepare('SELECT * FROM products WHERE id = ?').get(line.product_id);
     const unit = p ? p.price_cents : 0;
-    total += unit * line.qty; // ⚠️ total peut devenir négatif
-    return { product_id: line.product_id, qty: line.qty, unit_cents: unit };
+    const qty = cleanQty(line.qty); // FIX : re-borne côté serveur
+    total += unit * qty;
+    return { product_id: line.product_id, qty, unit_cents: unit };
   });
   if (validCoupon) total = Math.round(total * 0.9);
+  total = Math.max(0, total); // jamais négatif
 
   const info = db
     .prepare('INSERT INTO orders (user_id, items_json, total_cents) VALUES (?, ?, ?)')

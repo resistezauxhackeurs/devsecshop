@@ -1,0 +1,54 @@
+# devsecshop/.github/workflows/security.yml
+# TP8 — Pipeline de sécurité consolidée + GATE bloquante.
+# Le job "security-gate" ne réussit que si TOUS les contrôles passent.
+# Déclarez "security-gate" comme "required status check" dans la protection de branche :
+# Settings > Branches > Branch protection rules > Require status checks to pass.
+name: Security Gate
+on:
+  push:
+  pull_request:
+jobs:
+  secrets:
+    name: Secrets (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+
+  sast:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    container: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      - run: semgrep scan --error --config ./semgrep-rules --config "p/javascript"
+
+  sca:
+    name: SCA (deps)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm install
+      - run: npm audit --audit-level=high
+      - name: js-yaml >= 4
+        run: node -e "const v=require('js-yaml/package.json').version;if(+v.split('.')[0]<4)process.exit(1)"
+
+  tests:
+    name: Abuse-case tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - run: npm install
+      - run: npm test
+
+  security-gate:
+    name: security-gate
+    needs: [secrets, sast, sca, tests]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Tous les controles de securite sont passes. Merge autorise."

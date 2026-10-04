@@ -22,7 +22,6 @@
     "js-yaml": "^4.1.0",
     "jsonwebtoken": "^9.0.2",
     "libxmljs2": "0.33.0",
-    "lodash": "4.17.4",
     "express-rate-limit": "^7.4.0"
   },
   "devDependencies": {

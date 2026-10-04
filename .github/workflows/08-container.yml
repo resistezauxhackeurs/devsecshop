@@ -1,0 +1,28 @@
+# devsecshop/.github/workflows/08-container.yml
+# TP8 (bonus) — Sécurité du conteneur : lint Dockerfile + scan de vulnérabilités d'image.
+name: Security - Container
+on: [push, pull_request]
+jobs:
+  hadolint:
+    name: Hadolint (Dockerfile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+
+  trivy:
+    name: Trivy (image)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t devsecshop:ci .
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: devsecshop:ci
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          ignore-unfixed: true

@@ -4,14 +4,14 @@
 // FIX désérialisation : les préférences sont encodées/décodées en JSON pur.
 //   node-serialize est supprimé (format maison qui exécute du code à la lecture).
 //
-// ⚠️ RESTENT VULNÉRABLES (corrigés au TP8 / Niveau 3) :
-//   - IDOR sur GET /orders/:id
-//   - Mass assignment + prototype pollution sur POST /profile (lodash.merge)
+// FIX TP8 (Niveau 3) :
+//   - IDOR : /orders/:id filtre sur user_id.
+//   - Mass assignment + prototype pollution : plus de merge du body ; seul
+//     le champ email est mis à jour, is_admin n'est jamais pris du client.
 
 'use strict';
 
 const express = require('express');
-const _ = require('lodash');
 const router = express.Router();
 const { db } = require('../lib/db');
 const { requireAuth } = require('../lib/auth');
@@ -21,9 +21,9 @@ router.get('/orders', requireAuth, (req, res) => {
   res.render('orders', { orders });
 });
 
-// ⚠️ IDOR (corrigé au TP8)
+// FIX IDOR : on filtre sur l'utilisateur courant.
 router.get('/orders/:id', requireAuth, (req, res) => {
-  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
+  const order = db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(req.params.id, req.user.uid);
   if (!order) return res.status(404).send('Commande introuvable.');
   res.render('order-detail', { order });
 });
@@ -33,13 +33,11 @@ router.get('/profile', requireAuth, (req, res) => {
   res.render('profile', { profile: u, saved: false });
 });
 
-// ⚠️ Mass assignment + prototype pollution (corrigé au TP8)
+// FIX mass assignment : liste blanche explicite ; is_admin jamais pris du body.
 router.post('/profile', requireAuth, (req, res) => {
   const u = db.prepare('SELECT id, username, email, is_admin FROM users WHERE id = ?').get(req.user.uid);
-  const merged = {};
-  _.merge(merged, u, req.body);
-  db.prepare('UPDATE users SET email = ?, is_admin = ? WHERE id = ?')
-    .run(merged.email, merged.is_admin ? 1 : 0, u.id);
+  const email = typeof req.body.email === 'string' ? req.body.email : u.email;
+  db.prepare('UPDATE users SET email = ? WHERE id = ?').run(email, u.id);
   const updated = db.prepare('SELECT id, username, email, is_admin FROM users WHERE id = ?').get(u.id);
   res.render('profile', { profile: updated, saved: true });
 });
