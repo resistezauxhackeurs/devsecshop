@@ -1,16 +1,17 @@
 // devsecshop/src/routes/admin.js
-// Back-office — VERSION TP6 (SSRF + XXE + désérialisation YAML corrigées).
+// Back-office — VERSION TP7 (SSRF + XXE + YAML + injection de commande corrigées).
 //
 // FIX SSRF  : l'URL d'import est validée (schéma http/https) et l'hôte est
 //             résolu puis refusé s'il pointe vers une IP privée/loopback/
 //             link-local. Les redirections ne sont pas suivies.
 // FIX XXE   : le XML est parsé SANS substitution d'entités ni chargement de
 //             DTD externe, et sans accès réseau (nonet).
+// FIX js-yaml : js-yaml v4, load() sûr par défaut (plus de !!js/function).
 //
-// FIX js-yaml : passage à js-yaml v4 (load() sûr par défaut, plus de !!js/function).
+// FIX command injection (TP7) : l'export ne lance plus de shell ; le CSV/JSON
+//   est généré en JavaScript. Plus aucune donnée utilisateur dans une commande.
 //
-// ⚠️ RESTE VULNÉRABLE (corrigé au TP7) :
-//    - /export (injection de commande)
+// admin.js est désormais entièrement corrigé (SSRF, XXE, js-yaml, injection cmd).
 
 'use strict';
 
@@ -19,7 +20,6 @@ const http = require('http');
 const https = require('https');
 const dns = require('dns').promises;
 const net = require('net');
-const { execSync } = require('child_process');
 const yaml = require('js-yaml');
 const router = express.Router();
 const { db } = require('../lib/db');
@@ -119,15 +119,21 @@ router.post('/import-settings', requireAdmin, (req, res) => {
   }
 });
 
-// --- Injection de commande (⚠️ ENCORE VULNÉRABLE — corrigé au TP7) ---------
+// --- Export du catalogue (corrigé TP7) ------------------------------------
 router.post('/export', requireAdmin, (req, res) => {
-  const format = req.body.format || 'csv';
-  try {
-    const out = execSync('echo "Export au format ' + format + '" ', { encoding: 'utf8' });
-    res.send('<pre>' + out + '</pre>');
-  } catch (e) {
-    res.status(500).send('Erreur export.');
+  // FIX : liste blanche de formats + génération en JS, aucun shell.
+  const format = String(req.body.format || 'csv').toLowerCase();
+  if (format !== 'csv' && format !== 'json') {
+    return res.status(400).send('Format non supporté (csv ou json).');
   }
+  const products = db.prepare('SELECT id, name, price_cents, stock FROM products ORDER BY id').all();
+  if (format === 'json') {
+    return res.type('application/json').send(JSON.stringify(products, null, 2));
+  }
+  const esc = (v) => '"' + String(v).replace(/"/g, '""') + '"';
+  const header = 'id,name,price_cents,stock';
+  const rows = products.map((p) => [p.id, esc(p.name), p.price_cents, p.stock].join(','));
+  res.type('text/csv').send([header, ...rows].join('\n'));
 });
 
 module.exports = router;

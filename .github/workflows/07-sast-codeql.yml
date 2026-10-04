@@ -1,0 +1,23 @@
+# devsecshop/.github/workflows/07-sast-codeql.yml
+# TP7 — SAST avancé : CodeQL (analyse de flux) + règle Semgrep ciblée injection.
+name: Security - Command Injection
+on: [push, pull_request]
+jobs:
+  codeql:
+    name: CodeQL (JavaScript)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+          queries: security-extended
+      - uses: github/codeql-action/analyze@v3
+  semgrep-cmdi:
+    runs-on: ubuntu-latest
+    container: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      - run: semgrep scan --error --config ./semgrep-rules/command-injection.yml
