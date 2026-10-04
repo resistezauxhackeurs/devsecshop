@@ -1,0 +1,11 @@
+# devsecshop/.github/workflows/05-sast-deser.yml
+# TP5 — SAST ciblé : désérialisation non fiable. Échoue si node-serialize est utilisé.
+name: Security - Deserialization
+on: [push, pull_request]
+jobs:
+  semgrep-deser:
+    runs-on: ubuntu-latest
+    container: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      - run: semgrep scan --error --config ./semgrep-rules/insecure-deserialization.yml
