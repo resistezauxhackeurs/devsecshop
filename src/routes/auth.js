@@ -1,15 +1,16 @@
 // devsecshop/src/routes/auth.js
-// Authentification : login, logout, register.
+// Authentification — VERSION CORRIGÉE (TP3).
 //
-// ⚠️ VULN (TP3 - SQLi) : la requête de login est construite par concaténation
-//    de chaînes à partir des entrées utilisateur -> injection SQL possible.
-// ⚠️ VULN (TP3 - Brute force) : aucune limite de tentatives, aucun verrouillage
-//    de compte -> le login peut être brute-forcé (ex. Burp Intruder).
+// FIX SQLi : toutes les requêtes utilisent des paramètres liés (?), jamais de
+//            concaténation de chaînes.
+// FIX brute force : limiteur de tentatives (express-rate-limit) sur /login.
+//            En complément, on renvoie un message d'erreur générique.
 
 'use strict';
 
 const express = require('express');
 const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 const router = express.Router();
 const { db } = require('../lib/db');
 const { sign } = require('../lib/auth');
@@ -18,25 +19,27 @@ function md5(s) {
   return crypto.createHash('md5').update(s).digest('hex');
 }
 
+// Max 5 tentatives par IP sur 15 minutes, puis 429.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Trop de tentatives de connexion. Réessayez plus tard.'
+});
+
 router.get('/login', (req, res) => {
   res.render('login', { error: null });
 });
 
-router.post('/login', (req, res) => {
+router.post('/login', loginLimiter, (req, res) => {
   const { username, password } = req.body;
   const hash = md5(password || '');
 
-  // ⚠️ SQLi : concaténation directe. Payload type : username = admin' --
-  const sql =
-    "SELECT * FROM users WHERE username = '" + username +
-    "' AND password = '" + hash + "'";
-
-  let user;
-  try {
-    user = db.prepare(sql).get();
-  } catch (e) {
-    return res.status(500).render('login', { error: 'Erreur SQL : ' + e.message });
-  }
+  // FIX : requête paramétrée — les entrées ne peuvent plus altérer la requête.
+  const user = db
+    .prepare('SELECT * FROM users WHERE username = ? AND password = ?')
+    .get(username, hash);
 
   if (!user) {
     return res.status(401).render('login', { error: 'Identifiants invalides.' });
@@ -60,7 +63,7 @@ router.post('/register', (req, res) => {
     res.cookie('session', sign(user), { httpOnly: true });
     res.redirect('/');
   } catch (e) {
-    res.status(400).render('register', { error: 'Inscription impossible : ' + e.message });
+    res.status(400).render('register', { error: 'Inscription impossible.' });
   }
 });
 

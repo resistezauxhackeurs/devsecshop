@@ -4,7 +4,9 @@
   "version": "1.0.0",
   "description": "Boutique e-commerce volontairement vulnerable — support de formation CI/CD / DevSecOps.",
   "main": "src/app.js",
-  "engines": { "node": ">=20 <21" },
+  "engines": {
+    "node": ">=20 <21"
+  },
   "scripts": {
     "start": "node src/app.js",
     "dev": "node src/app.js",
@@ -21,7 +23,8 @@
     "jsonwebtoken": "^9.0.2",
     "libxmljs2": "0.33.0",
     "lodash": "4.17.4",
-    "node-serialize": "0.0.4"
+    "node-serialize": "0.0.4",
+    "express-rate-limit": "^7.4.0"
   },
   "devDependencies": {
     "eslint": "^8.57.0"
