@@ -1,5 +1,5 @@
 // devsecshop/src/routes/admin.js
-// Back-office — VERSION TP4 (SSRF + XXE corrigées).
+// Back-office — VERSION TP6 (SSRF + XXE + désérialisation YAML corrigées).
 //
 // FIX SSRF  : l'URL d'import est validée (schéma http/https) et l'hôte est
 //             résolu puis refusé s'il pointe vers une IP privée/loopback/
@@ -7,9 +7,10 @@
 // FIX XXE   : le XML est parsé SANS substitution d'entités ni chargement de
 //             DTD externe, et sans accès réseau (nonet).
 //
-// ⚠️ RESTENT VULNÉRABLES (corrigés plus tard) :
-//    - /import-settings (js-yaml load)  -> TP6
-//    - /export (injection de commande)  -> TP7
+// FIX js-yaml : passage à js-yaml v4 (load() sûr par défaut, plus de !!js/function).
+//
+// ⚠️ RESTE VULNÉRABLE (corrigé au TP7) :
+//    - /export (injection de commande)
 
 'use strict';
 
@@ -106,15 +107,15 @@ router.post('/import-catalog', requireAdmin, (req, res) => {
   }
 });
 
-// --- Désérialisation YAML (⚠️ ENCORE VULNÉRABLE — corrigé au TP6) ----------
+// --- Import de réglages YAML (corrigé TP6) --------------------------------
 router.post('/import-settings', requireAdmin, (req, res) => {
   const text = req.body.yaml || '';
   try {
-    const settings = yaml.load(text);
-    console.log('Réglages importés : ' + settings);
-    res.json({ ok: true, applied: Object.keys(settings || {}) });
+    // FIX : js-yaml v4, load() est sûr par défaut (schéma sans !!js/function).
+    const settings = yaml.load(text) || {};
+    res.json({ ok: true, applied: Object.keys(settings) });
   } catch (e) {
-    res.status(400).json({ ok: false, error: e.message });
+    res.status(400).json({ ok: false, error: 'YAML invalide.' });
   }
 });
 
