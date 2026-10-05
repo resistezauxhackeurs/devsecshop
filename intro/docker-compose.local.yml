@@ -1,12 +1,12 @@
 # app_intro-compromission/docker-compose.local.yml
 # LAB VOLONTAIREMENT VULNÉRABLE - local uniquement, jamais exposé sur internet.
-# Port lié à 127.0.0.1 : joignable seulement depuis la machine hôte.
+# Mode CTF : exposé sur 0.0.0.0 (toutes interfaces). Réseau de salle isolé uniquement.
 services:
   cible:
     build: ./cible
     container_name: intro-compromission
     ports:
-      - "127.0.0.1:8080:80"
+      - "0.0.0.0:8080:80"
     networks: [lab]
 
 networks:

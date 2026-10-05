@@ -8,9 +8,9 @@ services:
     build: .
     container_name: devsecshop
     ports:
-      # Lié à la loopback uniquement (règle projet) : le lab n'est joignable que
-      # depuis la machine hôte, pas exposé sur le réseau.
-      - "127.0.0.1:3000:3000"
+      # Mode CTF : exposé sur 0.0.0.0 (toutes les interfaces) pour un accès depuis
+      # d'autres machines. À réserver à un réseau de salle isolé / de confiance.
+      - "0.0.0.0:3000:3000"
     environment:
       - PORT=3000
       # Les secrets sont volontairement laissés en valeurs faibles / par défaut.
