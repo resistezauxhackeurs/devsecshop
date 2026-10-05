@@ -14,6 +14,11 @@ docker compose logs -f app        # logs
 docker compose down               # arrêt
 ```
 
+**Mode CTF** : les ports sont exposés sur `0.0.0.0`. Depuis une autre machine du réseau,
+l'app est accessible via l'IP de l'hôte : `http://<IP-de-l-hote>:3000` (et `:8080` pour
+l'intro). Trouve l'IP avec `hostname -I` (Linux) ou `ipconfig` (Windows).
+À n'utiliser que sur un **réseau de salle isolé / de confiance** (ces apps sont volontairement vulnérables).
+
 Comptes de démo : `admin`, `alice` (mot de passe `password`), `bob`.
 
 ## TP 0 - intro : « comment une appli se fait compromettre »
