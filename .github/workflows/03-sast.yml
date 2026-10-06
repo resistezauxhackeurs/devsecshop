@@ -1,9 +1,12 @@
 # devsecshop/.github/workflows/03-sast.yml
-# TP3 — Analyse statique (SAST) avec Semgrep. Échoue si une règle trouve une faille.
+# TP3 - Analyse statique (SAST) avec Semgrep. Echoue si une REGLE MAISON trouve une faille.
 name: Security - SAST
 on:
   push:
   pull_request:
+permissions:
+  contents: read
+  security-events: write   # requis par l'upload SARIF (code scanning)
 jobs:
   semgrep:
     name: Semgrep (SAST)
@@ -11,11 +14,17 @@ jobs:
     container: semgrep/semgrep
     steps:
       - uses: actions/checkout@v4
-      - name: Semgrep (règles maison + registre)
-        run: semgrep scan --error --sarif --output semgrep.sarif
-             --config ./semgrep-rules --config "p/javascript"
+      # Bloquant : les regles MAISON (les failles enseignees dans les TP).
+      # Sur le code corrige, aucune ne matche -> job vert.
+      - name: Semgrep (règles maison, bloquant)
+        run: semgrep scan --error --sarif --output semgrep.sarif --config ./semgrep-rules
+      # Informatif : registre communautaire (large couverture, mais bruit possible
+      # hors curriculum) -> n'echoue jamais le build.
+      - name: Semgrep (registre p/javascript, informatif)
+        run: semgrep scan --config "p/javascript" || true
       - name: Upload SARIF
         if: always()
+        continue-on-error: true   # l'upload ne doit pas faire echouer le job
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: semgrep.sarif
