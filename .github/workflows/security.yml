@@ -22,7 +22,10 @@ jobs:
     container: semgrep/semgrep
     steps:
       - uses: actions/checkout@v4
-      - run: semgrep scan --error --config ./semgrep-rules --config "p/javascript"
+      # Bloquant sur les regles MAISON (failles du cours). p/javascript en informatif
+      # (il remonte des faux positifs hors curriculum, ex. res.send -> XSS generique).
+      - run: semgrep scan --error --config ./semgrep-rules
+      - run: semgrep scan --config "p/javascript" || true
 
   sca:
     name: SCA (deps)
