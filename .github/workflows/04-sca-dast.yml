@@ -1,5 +1,5 @@
 # devsecshop/.github/workflows/04-sca-dast.yml
-# TP4 — Analyse de composition (SCA) + scan dynamique (DAST ZAP).
+# TP4 - Analyse de composition (SCA) + scan dynamique (DAST ZAP), AUTHENTIFIE.
 name: Security - SCA & DAST
 on:
   push:
@@ -22,20 +22,37 @@ jobs:
           scan-args: "--lockfile=package-lock.json"
 
   dast:
-    name: ZAP Baseline (DAST)
+    name: ZAP Baseline authentifié (DAST)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Démarrer l'appli
-        run: docker compose up -d --build
-      - name: Attendre que l'appli réponde
         run: |
-          for i in $(seq 1 30); do
-            curl -sf http://localhost:3000/ && break || sleep 2
-          done
-      - name: ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.12.0
+          docker compose up -d --build
+          for i in $(seq 1 30); do curl -sf http://localhost:3000/ >/dev/null && break || sleep 2; done
+      # Session admin par login légitime : ZAP scanne aussi le back-office
+      # (import image/catalogue/réglages, export) où vivent SSRF et XXE.
+      - name: Session admin
+        id: auth
+        run: |
+          JWT=$(curl -fsS -o /dev/null -c - \
+            --data-urlencode 'username=admin' --data-urlencode 'password=S3cur3P@ss' \
+            http://localhost:3000/login | awk '$6=="session"{print $7}' | tail -1)
+          echo "cookie=session=$JWT" >> "$GITHUB_OUTPUT"
+      # Docker ZAP direct (host.docker.internal) : plus fiable que l'action pour
+      # joindre l'appli du runner, et accepte l'injection du cookie via replacer.
+      - name: ZAP Baseline (authentifié)
+        run: |
+          mkdir -p reports && chmod 777 reports
+          docker run --rm --add-host=host.docker.internal:host-gateway \
+            -v "$PWD:/zap/wrk:rw" ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py -t http://host.docker.internal:3000 \
+            -r reports/zap.html -c .zap/rules.tsv -a -I \
+            -z "-config replacer.full_list(0).description=auth -config replacer.full_list(0).enabled=true -config replacer.full_list(0).matchtype=REQ_HEADER -config replacer.full_list(0).matchstr=Cookie -config replacer.full_list(0).regex=false -config replacer.full_list(0).replacement=${{ steps.auth.outputs.cookie }}"
+      - name: Publier le rapport ZAP
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          target: "http://localhost:3000"
-          rules_file_name: ".zap/rules.tsv"
-          cmd_options: "-a"
+          name: zap-report
+          path: reports/zap.html
+          if-no-files-found: warn
