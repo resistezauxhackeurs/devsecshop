@@ -47,6 +47,23 @@ branche `solution/tpN`).
 scripts\test.bat
 ```
 
+## Auto-test sécurité (DAST) : ZAP + ffuf
+
+Scanne ton app pendant qu'elle tourne (`docker compose up -d`). Le script récupère une
+session admin (login légitime), lance un **ZAP baseline** et une **découverte de contenu**
+(`ffuf` si installé, sinon `curl`). Tout en Docker, rien à installer à part Docker.
+
+```bash
+# Linux / macOS / Git Bash
+./scripts/scan.sh
+# Windows
+scripts\scan.bat
+```
+
+Rapports générés dans `reports/` (non versionné) : `zap.html` (à ouvrir dans un navigateur)
+et `ffuf.txt`. Le même scan tourne en CI (`.github/workflows/dast.yml`, rapport en artefact).
+Compare le scan avant / après tes correctifs : les alertes doivent reculer.
+
 ## Voir / récupérer le correctif officiel d'un TP
 
 Chaque TP a une branche solution **cumulative** (socle + correctifs jusqu'à ce TP) :
