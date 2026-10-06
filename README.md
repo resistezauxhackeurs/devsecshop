@@ -61,8 +61,8 @@ scripts\scan.bat
 ```
 
 Rapports générés dans `reports/` (non versionné) : `zap.html` (à ouvrir dans un navigateur)
-et `ffuf.txt`. Le même scan tourne en CI (`.github/workflows/dast.yml`, rapport en artefact).
-Compare le scan avant / après tes correctifs : les alertes doivent reculer.
+et `ffuf.txt`. Ce même scan (authentifié) devient un **job CI** que tu ajoutes au **TP4**
+(DAST). Compare le scan avant / après tes correctifs : les alertes doivent reculer.
 
 ## Voir / récupérer le correctif officiel d'un TP
 
