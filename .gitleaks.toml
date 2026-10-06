@@ -16,4 +16,15 @@ description = "Mot de passe en clair (DB_PASSWORD / PASSWORD = ...) dans le dép
 regex = '''(?i)(db_password|db_pass|password|passwd|pwd)\s*[:=]\s*["']?[^\s"']{6,}'''
 tags = ["password", "secret"]
 
-# Pas d'allowlist : on VEUT que les secrets plantés soient détectés.
+# Allowlist CHIRURGICALE : uniquement les fichiers d'automatisation de scan DAST, qui
+# utilisent l'identifiant admin du lab (login legitime pour le scan authentifie). Ce
+# n'est PAS un secret fuite. Les secrets PLANTES (.env sk_lab_/DB_PASSWORD, config.js)
+# restent detectes partout ailleurs - la lecon du TP2 est intacte.
+[allowlist]
+description = "Identifiant admin du lab dans l'automatisation DAST (non sensible)"
+paths = [
+  '''scripts/scan\.sh''',
+  '''scripts/scan\.bat''',
+  '''\.github/workflows/04-sca-dast\.yml''',
+  '''\.github/workflows/dast\.yml''',
+]
