@@ -1,0 +1,37 @@
+# devsecshop/semgrep-rules/sql-injection.yml
+rules:
+  - id: better-sqlite3-sql-string-building
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      Requête SQL construite par concaténation ou template string et passée à
+      prepare()/exec() (directement, ou via une variable intermédiaire). Risque
+      d'injection SQL. Utiliser des paramètres liés :
+      db.prepare('... WHERE x = ?').get(valeur).
+    metadata:
+      cwe: "CWE-89: SQL Injection"
+      owasp: "A03:2021 - Injection"
+    patterns:
+      - pattern-either:
+          # 1) Concaténation / template directement dans l'appel.
+          - pattern: $DB.prepare("..." + ...)
+          - pattern: $DB.prepare(... + "...")
+          - pattern: $DB.prepare(`...${...}...`)
+          - pattern: $DB.exec("..." + ...)
+          - pattern: $DB.exec(`...${...}...`)
+          # 2) Requête assemblée dans une variable puis passée à prepare()/exec().
+          #    (C'est la forme utilisée par le socle : const sql = "..." + x; db.prepare(sql))
+          - patterns:
+              - pattern-either:
+                  - pattern: $DB.prepare($SQL)
+                  - pattern: $DB.exec($SQL)
+              - pattern-inside: |
+                  $SQL = "..." + ...;
+                  ...
+          - patterns:
+              - pattern-either:
+                  - pattern: $DB.prepare($SQL)
+                  - pattern: $DB.exec($SQL)
+              - pattern-inside: |
+                  $SQL = `...${...}...`;
+                  ...

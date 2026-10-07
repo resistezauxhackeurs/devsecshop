@@ -1,0 +1,16 @@
+# devsecshop/semgrep-rules/insecure-deserialization.yml
+rules:
+  - id: node-serialize-rce
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      node-serialize exécute du code à la désérialisation (RCE via _$$ND_FUNC$$_).
+      Ne jamais désérialiser de données non fiables avec ce format. Utiliser JSON.
+    metadata:
+      cwe: "CWE-502: Deserialization of Untrusted Data"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+    patterns:
+      - pattern-either:
+          - pattern: require('node-serialize')
+          - pattern: require("node-serialize")
+          - pattern: $X.unserialize(...)
