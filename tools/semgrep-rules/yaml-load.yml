@@ -1,0 +1,38 @@
+# devsecshop/semgrep-rules/yaml-load.yml
+rules:
+  # Détecteur principal : js-yaml < 4 déclaré en dépendance. En v3, load()
+  # exécute !!js/function. yaml.load() étant syntaxiquement IDENTIQUE en v3
+  # (dangereux) et v4 (sûr), on ne peut pas trancher sur le code seul : on
+  # cible la version dans package.json. (Le job SCA du workflow fait le même
+  # contrôle en complément.)
+  - id: js-yaml-v3-vulnerable-version
+    languages: [generic]
+    severity: ERROR
+    message: >
+      js-yaml < 4 déclaré en dépendance : load() y exécute !!js/function
+      (désérialisation non fiable -> RCE). Migrer vers js-yaml >= 4
+      (load() sûr par défaut, plus de !!js/function).
+    metadata:
+      cwe: "CWE-502: Deserialization of Untrusted Data"
+      owasp: "A08:2021 - Software and Data Integrity Failures"
+    paths:
+      include:
+        - "package.json"
+    patterns:
+      - pattern-regex: '"js-yaml":\s*"[\^~]?3\.'
+
+  # Complément code : safeLoad (API retirée en v4, donc signe certain de v3) et
+  # load() appelé directement sur require('js-yaml').
+  - id: js-yaml-unsafe-load-api
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      API js-yaml dangereuse : safeLoad (supprimé en v4) ou load() appelé
+      directement sur require('js-yaml'). En v3, load() exécute !!js/function.
+    metadata:
+      cwe: "CWE-502: Deserialization of Untrusted Data"
+    patterns:
+      - pattern-either:
+          - pattern: $Y.safeLoad(...)
+          - pattern: require('js-yaml').load(...)
+          - pattern: require("js-yaml").load(...)
