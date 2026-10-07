@@ -1,0 +1,30 @@
+# devsecshop/.gitleaks.toml
+# Étend les règles par défaut de gitleaks avec une règle maison.
+[extend]
+useDefault = true
+
+[[rules]]
+id = "devsecshop-stripe-like"
+description = "Clé secrète type Stripe (sk_lab_...)"
+regex = '''sk_lab_[0-9a-zA-Z]{24,}'''
+tags = ["payment", "secret"]
+
+[[rules]]
+id = "devsecshop-plaintext-password"
+description = "Mot de passe en clair (DB_PASSWORD / PASSWORD = ...) dans le dépôt"
+# Valeur d'au moins 6 caractères : les gabarits vides (.env.example) ne matchent pas.
+regex = '''(?i)(db_password|db_pass|password|passwd|pwd)\s*[:=]\s*["']?[^\s"']{6,}'''
+tags = ["password", "secret"]
+
+# Allowlist CHIRURGICALE : uniquement les fichiers d'automatisation de scan DAST, qui
+# utilisent l'identifiant admin du lab (login legitime pour le scan authentifie). Ce
+# n'est PAS un secret fuite. Les secrets PLANTES (.env sk_lab_/DB_PASSWORD, config.js)
+# restent detectes partout ailleurs - la lecon du TP2 est intacte.
+[allowlist]
+description = "Identifiant admin du lab dans l'automatisation DAST (non sensible)"
+paths = [
+  '''scripts/scan\.sh''',
+  '''scripts/scan\.bat''',
+  '''\.github/workflows/04-sca-dast\.yml''',
+  '''\.github/workflows/dast\.yml''',
+]
