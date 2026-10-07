@@ -1,0 +1,27 @@
+# devsecshop/semgrep-rules/command-injection.yml
+rules:
+  - id: child-process-shell-injection
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      Commande shell construite par concaténation/template avec une entrée
+      utilisateur (child_process.exec/execSync). Risque d'injection de commande.
+      Utiliser execFile/spawn avec un tableau d'arguments, ou éviter le shell.
+    metadata:
+      cwe: "CWE-78: OS Command Injection"
+      owasp: "A03:2021 - Injection"
+    patterns:
+      - pattern-either:
+          - pattern: execSync("..." + ...)
+          - pattern: execSync(`...${...}...`)
+          - pattern: exec("..." + ...)
+          - pattern: exec(`...${...}...`)
+          - pattern: execSync("..." + ..., ...)
+          - pattern: exec("..." + ..., ...)
+          - pattern: $CP.execSync("..." + ...)
+          - pattern: $CP.execSync(`...${...}...`)
+          - pattern: $CP.execSync("..." + ..., ...)
+          - pattern: $CP.exec("..." + ..., ...)
+          - pattern: $CP.exec(`...${...}...`, ...)
+          - pattern: $CP.exec("..." + ...)
+          - pattern: $CP.exec(`...${...}...`)
