@@ -1,7 +1,8 @@
 # devsecshop/.github/workflows/07-sast-codeql.yml
 # TP7 — SAST avancé : CodeQL (analyse de flux) + règle Semgrep ciblée injection.
 name: Security - Command Injection
-on: [push, pull_request]
+on:
+  workflow_dispatch:   # execution MANUELLE seulement (cours en local ; CI de reference)
 jobs:
   codeql:
     name: CodeQL (JavaScript)
