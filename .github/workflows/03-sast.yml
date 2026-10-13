@@ -2,8 +2,7 @@
 # TP3 - Analyse statique (SAST) avec Semgrep. Echoue si une REGLE MAISON trouve une faille.
 name: Security - SAST
 on:
-  push:
-  pull_request:
+  workflow_dispatch:   # execution MANUELLE seulement (cours en local ; CI de reference)
 permissions:
   contents: read
   security-events: write   # requis par l'upload SARIF (code scanning)

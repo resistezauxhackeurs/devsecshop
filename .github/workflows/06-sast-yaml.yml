@@ -1,7 +1,8 @@
 # devsecshop/.github/workflows/06-sast-yaml.yml
 # TP6 — SAST + SCA ciblés sur la désérialisation YAML.
 name: Security - YAML
-on: [push, pull_request]
+on:
+  workflow_dispatch:   # execution MANUELLE seulement (cours en local ; CI de reference)
 jobs:
   semgrep-yaml:
     runs-on: ubuntu-latest

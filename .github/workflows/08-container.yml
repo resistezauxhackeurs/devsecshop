@@ -1,7 +1,8 @@
 # devsecshop/.github/workflows/08-container.yml
 # TP8 (bonus) — Sécurité du conteneur : lint Dockerfile + scan de vulnérabilités d'image.
 name: Security - Container
-on: [push, pull_request]
+on:
+  workflow_dispatch:   # execution MANUELLE seulement (cours en local ; CI de reference)
 jobs:
   hadolint:
     name: Hadolint (Dockerfile)

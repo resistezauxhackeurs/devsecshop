@@ -5,8 +5,7 @@
 # Settings > Branches > Branch protection rules > Require status checks to pass.
 name: Security Gate
 on:
-  push:
-  pull_request:
+  workflow_dispatch:   # execution MANUELLE seulement (cours en local ; CI de reference)
 jobs:
   secrets:
     name: Secrets (gitleaks)
