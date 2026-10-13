@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Hook git pre-push : lance la pipeline de securite LOCALE avant chaque push,
+# et REFUSE le push si un controle bloquant echoue (equivalent local d'une CI bloquante).
+#
+# Activation (une fois, depuis la racine du depot) :
+#   git config core.hooksPath scripts/githooks
+#   chmod +x scripts/githooks/pre-push   # Linux/macOS
+#
+# Contournement ponctuel :  git push --no-verify
+echo "== pre-push : pipeline de securite locale (scripts/pipeline.sh) =="
+ROOT="$(git rev-parse --show-toplevel)"
+if bash "$ROOT/scripts/pipeline.sh"; then
+  exit 0
+else
+  echo ""
+  echo "Push REFUSE : la pipeline locale est ROUGE. Corrige les points FAIL, puis repousse."
+  echo "(contournement ponctuel : git push --no-verify)"
+  exit 1
+fi

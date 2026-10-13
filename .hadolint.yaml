@@ -1,3 +1,7 @@
-# devsecshop/.hadolint.yaml
+# devsecshop/.hadolint.yaml - regles hadolint ignorees pour ce lab.
+#  DL3008 : pin des versions apt (python3/make/g++ du build-stage durci du TP8).
+#           Fragile a maintenir et sans interet securite ici.
+#  DL3066 : UID non numerique - l'utilisateur non-root 'app' est nomme, c'est OK.
 ignored:
-  - DL3008  # version des paquets apt non épinglée (toléré en lab)
+  - DL3008
+  - DL3066
