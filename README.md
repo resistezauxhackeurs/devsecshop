@@ -76,11 +76,24 @@ git checkout solution/tp3             # ou basculer sur l'état corrigé du TP3
 
 `solution/tp8` = état « capstone » (tout corrigé, pipeline complète).
 
-## Pipeline CI/CD
+## Pipeline de sécurité - en local (pas besoin de GitHub Actions)
 
-Un workflow GitHub Actions est à la racine (`.github/workflows/`). Au fork, il
-tourne à l'état TP1 (build + lint + test). À chaque TP tu ajoutes un job de
-sécurité (secret scanning, SAST, SCA, DAST, gate) - les branches solution le montrent.
+Les contrôles se lancent **sur ta machine**, tout en Docker :
+
+```bash
+./scripts/pipeline.sh     # le "gate" : lint, tests, secrets, SAST, SCA, conteneur
+scripts\pipeline.bat      # Windows
+```
+
+Au départ (code vulnérable) la pipeline est **rouge** ; chaque TP corrige une faille jusqu'à
+la rendre **verte**. Automatise-la avant chaque push :
+
+```bash
+git config core.hooksPath scripts/githooks   # active le hook pre-push
+```
+
+Les fichiers `.github/workflows/` fournis sont l'**équivalent CI** (référence) : à lire pour
+voir « à quoi ça ressemble sur un serveur », à pousser seulement si ton compte autorise GitHub
+Actions (facultatif).
 
 > Le fichier `.env` versionné contient de **faux** secrets (c'est la matière du TP2).
-> GitHub peut bloquer le push (push protection) : autorise l'exception, ce ne sont pas de vrais secrets.
