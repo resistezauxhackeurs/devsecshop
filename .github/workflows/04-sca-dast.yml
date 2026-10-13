@@ -2,8 +2,7 @@
 # TP4 - Analyse de composition (SCA) + scan dynamique (DAST ZAP), AUTHENTIFIE.
 name: Security - SCA & DAST
 on:
-  push:
-  pull_request:
+  workflow_dispatch:   # execution MANUELLE seulement (cours en local ; CI de reference)
 jobs:
   sca:
     name: Dépendances (npm audit)
